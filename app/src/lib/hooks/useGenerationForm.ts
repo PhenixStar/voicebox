@@ -23,7 +23,7 @@ const generationSchema = z.object({
 export type GenerationFormValues = z.infer<typeof generationSchema>;
 
 // Models that use built-in voices (no profile needed)
-export const BUILTIN_VOICE_MODELS = ['kokoro-82M', 'kugelaudio-7B'] as const;
+export const BUILTIN_VOICE_MODELS = ['kokoro-82M', 'kugelaudio-7B', 'elevenlabs-v2'] as const;
 
 // Check if a model uses built-in voices
 export function isBuiltinVoiceModel(modelName?: string): boolean {
@@ -99,7 +99,7 @@ export function useGenerationForm(options: UseGenerationFormOptions = {}) {
       try {
         const modelStatus = await apiClient.getModelStatus();
         const model = modelStatus.models.find((m) => m.model_name === modelName);
-        if (model && !model.downloaded) {
+        if (model && !model.downloaded && !model.is_cloud) {
           setDownloadingModelName(modelName);
           setDownloadingDisplayName(displayName);
         }

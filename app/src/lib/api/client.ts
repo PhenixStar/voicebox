@@ -24,6 +24,9 @@ import type {
   StoryItemMove,
   StoryItemTrim,
   StoryItemSplit,
+  SettingResponse,
+  VideoImportResponse,
+  DiarizedTranscriptionResponse,
 } from './types';
 
 class ApiClient {
@@ -312,6 +315,49 @@ class ApiClient {
     return response.json();
   }
 
+  // Diarized Transcription
+  async transcribeFile(
+    file: File,
+    language: string,
+    diarize: boolean,
+    modelSize: string,
+  ): Promise<DiarizedTranscriptionResponse> {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('language', language);
+    formData.append('diarize', String(diarize));
+    formData.append('model_size', modelSize);
+
+    const url = `${this.getBaseUrl()}/transcribe/file`;
+    const response = await fetch(url, { method: 'POST', body: formData });
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ detail: response.statusText }));
+      throw new Error(error.detail || 'Transcription failed');
+    }
+    return response.json();
+  }
+
+  async transcribeUrl(
+    targetUrl: string,
+    language: string,
+    diarize: boolean,
+    modelSize: string,
+  ): Promise<DiarizedTranscriptionResponse> {
+    const formData = new FormData();
+    formData.append('url', targetUrl);
+    formData.append('language', language);
+    formData.append('diarize', String(diarize));
+    formData.append('model_size', modelSize);
+
+    const url = `${this.getBaseUrl()}/transcribe/url`;
+    const response = await fetch(url, { method: 'POST', body: formData });
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ detail: response.statusText }));
+      throw new Error(error.detail || 'Transcription failed');
+    }
+    return response.json();
+  }
+
   // Model Management
   async getModelStatus(): Promise<ModelStatusListResponse> {
     return this.request<ModelStatusListResponse>('/models/status');
@@ -515,6 +561,79 @@ class ApiClient {
     }
 
     return response.blob();
+  }
+
+  // Settings
+  async listSettings(): Promise<SettingResponse[]> {
+    return this.request<SettingResponse[]>('/settings');
+  }
+
+  async getSetting(key: string): Promise<SettingResponse> {
+    return this.request<SettingResponse>(`/settings/${key}`);
+  }
+
+  async updateSetting(key: string, value: string): Promise<SettingResponse> {
+    return this.request<SettingResponse>(`/settings/${key}`, {
+      method: 'PUT',
+      body: JSON.stringify({ value }),
+    });
+  }
+
+  async resetSetting(key: string): Promise<{ message: string }> {
+    return this.request<{ message: string }>(`/settings/${key}`, {
+      method: 'DELETE',
+    });
+  }
+
+  // Video/URL Import
+  async importProfileFromUrl(data: {
+    url: string;
+    name: string;
+    language?: string;
+    description?: string;
+    clip_start?: number;
+    clip_duration?: number;
+  }): Promise<VideoImportResponse> {
+    const url = `${this.getBaseUrl()}/profiles/from-url`;
+    const formData = new FormData();
+    formData.append('url', data.url);
+    formData.append('name', data.name);
+    if (data.language) formData.append('language', data.language);
+    if (data.description) formData.append('description', data.description);
+    if (data.clip_start !== undefined) formData.append('clip_start', String(data.clip_start));
+    if (data.clip_duration !== undefined) formData.append('clip_duration', String(data.clip_duration));
+
+    const response = await fetch(url, { method: 'POST', body: formData });
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ detail: response.statusText }));
+      throw new Error(error.detail || `HTTP error! status: ${response.status}`);
+    }
+    return response.json();
+  }
+
+  async importProfileFromFile(
+    file: File,
+    name: string,
+    language?: string,
+    description?: string,
+    clipStart?: number,
+    clipDuration?: number,
+  ): Promise<VideoImportResponse> {
+    const url = `${this.getBaseUrl()}/profiles/from-file`;
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('name', name);
+    if (language) formData.append('language', language);
+    if (description) formData.append('description', description);
+    if (clipStart !== undefined) formData.append('clip_start', String(clipStart));
+    if (clipDuration !== undefined) formData.append('clip_duration', String(clipDuration));
+
+    const response = await fetch(url, { method: 'POST', body: formData });
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ detail: response.statusText }));
+      throw new Error(error.detail || `HTTP error! status: ${response.status}`);
+    }
+    return response.json();
   }
 }
 

@@ -149,6 +149,25 @@ async def get_model_status():
             size_mb = None
             loaded = False
             is_local = cfg.get("is_local", False)
+            is_cloud = cfg.get("is_cloud", False)
+
+            # Cloud models: always "downloaded" (API-based)
+            if is_cloud:
+                import os
+                api_key = os.environ.get("ELEVENLABS_API_KEY", "")
+                statuses.append(models.ModelStatus(
+                    model_name=cfg["model_name"],
+                    display_name=cfg["display_name"],
+                    downloaded=bool(api_key),
+                    downloading=False,
+                    size_mb=None,
+                    loaded=bool(api_key),
+                    backend_type=cfg.get("backend_type"),
+                    model_type=cfg.get("model_type", "tts"),
+                    is_local=False,
+                    is_cloud=True,
+                ))
+                continue
 
             # Local models: check weight file on disk
             if is_local:
@@ -388,6 +407,11 @@ async def delete_model(model_name: str):
     """
     import shutil
     from huggingface_hub import constants as hf_constants
+
+    # Cloud models: nothing to delete on disk
+    cloud_models = {"elevenlabs-v2"}
+    if model_name in cloud_models:
+        return {"message": f"Model {model_name} is a cloud API — nothing to delete"}
 
     # Local models: unload from GPU but don't delete files
     local_models = {"kokoro-82M": "kokoro", "kugelaudio-7B": "kugelaudio"}

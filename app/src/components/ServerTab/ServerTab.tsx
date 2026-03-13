@@ -1,5 +1,4 @@
 import { Settings } from 'lucide-react';
-import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   Select,
@@ -11,7 +10,8 @@ import {
 import { ConnectionForm } from '@/components/ServerSettings/ConnectionForm';
 import { ServerStatus } from '@/components/ServerSettings/ServerStatus';
 import { UpdateStatus } from '@/components/ServerSettings/UpdateStatus';
-import { apiClient } from '@/lib/api/client';
+import { ApiKeysCard } from '@/components/ServerTab/ApiKeysCard';
+import { GenerationDefaultsCard } from '@/components/ServerTab/GenerationDefaultsCard';
 import { usePlatform } from '@/platform/PlatformContext';
 import { useUIStore } from '@/stores/uiStore';
 import { usePlayerStore } from '@/stores/playerStore';
@@ -24,17 +24,10 @@ export function ServerTab() {
   const audioUrl = usePlayerStore((s) => s.audioUrl);
   const isPlayerVisible = !!audioUrl;
 
-  // Health data doubles as server info (no dedicated getServerInfo endpoint)
-  const { data: health } = useQuery({
-    queryKey: ['serverHealth'],
-    queryFn: () => apiClient.getHealth(),
-    retry: false,
-  });
-
   return (
     <div
       className={cn(
-        'h-full flex flex-col py-4 overflow-y-auto space-y-6',
+        'h-full flex flex-col py-4 overflow-y-auto space-y-6 max-w-2xl mx-auto w-full',
         isPlayerVisible && 'pb-32',
       )}
     >
@@ -74,35 +67,14 @@ export function ServerTab() {
         </CardContent>
       </Card>
 
+      {/* API Keys */}
+      <ApiKeysCard />
+
+      {/* Generation Defaults */}
+      <GenerationDefaultsCard />
+
       {/* Update (Tauri only) */}
       {platform.metadata.isTauri && <UpdateStatus />}
-
-      {/* About */}
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base">About</CardTitle>
-        </CardHeader>
-        <CardContent className="text-sm text-muted-foreground space-y-1">
-          {health && (
-            <>
-              <p>GPU: {health.gpu_available ? 'Available' : 'Not available'}</p>
-              {health.vram_used_mb != null && <p>VRAM used: {health.vram_used_mb.toFixed(0)} MB</p>}
-              {health.model_size && <p>Active model size: {health.model_size}</p>}
-            </>
-          )}
-          <p className="pt-2">
-            Created by{' '}
-            <a
-              href="https://github.com/PhenixStar"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-accent hover:underline"
-            >
-              phenix
-            </a>
-          </p>
-        </CardContent>
-      </Card>
     </div>
   );
 }

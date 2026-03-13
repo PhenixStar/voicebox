@@ -1,7 +1,7 @@
 import { Link } from '@tanstack/react-router';
 import { useQuery } from '@tanstack/react-query';
 import { AnimatePresence, motion } from 'framer-motion';
-import { Loader2, Play, SlidersHorizontal, Sparkles } from 'lucide-react';
+import { Loader2, Play, SlidersHorizontal, Sparkles, Zap } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
@@ -27,7 +27,19 @@ import { useProfiles } from '@/lib/hooks/useProfiles';
 import { useHistory } from '@/lib/hooks/useHistory';
 import { useUIStore } from '@/stores/uiStore';
 import { usePlayerStore } from '@/stores/playerStore';
+import { useGenerationProgress, getStepLabel } from '@/lib/hooks/useGenerationProgress';
 import type { HistoryResponse } from '@/lib/api/types';
+
+const EMOTION_PRESETS = [
+  { label: 'Happy', emoji: '\u{1F60A}', instruct: 'Speak with warmth, joy, and a smile in your voice' },
+  { label: 'Sad', emoji: '\u{1F622}', instruct: 'Speak with a somber, melancholic tone, as if holding back tears' },
+  { label: 'Angry', emoji: '\u{1F620}', instruct: 'Speak with intensity and frustration, firm and sharp' },
+  { label: 'Whisper', emoji: '\u{1F92B}', instruct: 'Speak in a soft whisper, barely audible, intimate' },
+  { label: 'Excited', emoji: '\u{1F929}', instruct: 'Speak with high energy and enthusiasm, fast-paced and thrilled' },
+  { label: 'Calm', emoji: '\u{1F9D8}', instruct: 'Speak slowly and peacefully, with a soothing meditation-like tone' },
+  { label: 'Narrator', emoji: '\u{1F3AC}', instruct: 'Speak with a deep, authoritative narrator tone, like a documentary' },
+  { label: 'News', emoji: '\u{1F4F0}', instruct: 'Speak in a professional, clear news anchor delivery style' },
+] as const;
 
 export function MainEditor() {
   const selectedProfileId = useUIStore((s) => s.selectedProfileId);
@@ -38,6 +50,7 @@ export function MainEditor() {
   const [isInstructMode, setIsInstructMode] = useState(false);
 
   const { form, handleSubmit, isPending } = useGenerationForm();
+  const genProgress = useGenerationProgress(isPending);
 
   const watchedModelName = form.watch('modelName');
   const watchedText = form.watch('text') || '';
@@ -50,9 +63,7 @@ export function MainEditor() {
     refetchInterval: 10000,
   });
   const ttsModels = modelStatus?.models.filter(
-    (m) =>
-      m.model_name.startsWith('qwen-tts') ||
-      BUILTIN_VOICE_MODELS.includes(m.model_name as (typeof BUILTIN_VOICE_MODELS)[number]),
+    (m) => m.model_type === 'tts',
   ) ?? [];
 
   // Fetch voices for built-in voice models
@@ -108,12 +119,13 @@ export function MainEditor() {
                         <SelectItem
                           key={m.model_name}
                           value={m.model_name}
-                          disabled={!m.downloaded}
+                          disabled={!m.downloaded && !m.is_cloud}
                           className="text-sm"
                         >
                           {m.display_name}
-                          {!m.downloaded && ' (not downloaded)'}
-                          {m.loaded && ' (active)'}
+                          {m.is_cloud && ' \u2601'}
+                          {!m.downloaded && !m.is_cloud && ' (not downloaded)'}
+                          {m.loaded && !m.is_cloud && ' (active)'}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -245,7 +257,7 @@ export function MainEditor() {
               {isPending ? (
                 <>
                   <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                  Generating...
+                  {genProgress ? getStepLabel(genProgress.step) : 'Generating...'}
                 </>
               ) : (
                 <>
@@ -255,6 +267,23 @@ export function MainEditor() {
               )}
             </Button>
           </div>
+
+          {/* Generation Progress Bar */}
+          {isPending && genProgress && genProgress.progress > 0 && (
+            <div className="shrink-0">
+              <div className="flex items-center gap-2 text-xs text-muted-foreground mb-1">
+                <Zap className="h-3 w-3" />
+                <span>{getStepLabel(genProgress.step)}</span>
+                <span className="ml-auto">{genProgress.progress}%</span>
+              </div>
+              <div className="h-1.5 bg-muted rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-accent rounded-full transition-all duration-500 ease-out"
+                  style={{ width: `${genProgress.progress}%` }}
+                />
+              </div>
+            </div>
+          )}
 
           {/* Expandable Instruct Panel */}
           <AnimatePresence>
@@ -275,6 +304,23 @@ export function MainEditor() {
                         <FormLabel className="text-xs font-medium text-muted-foreground">
                           Voice Instructions
                         </FormLabel>
+                        {/* Emotion presets */}
+                        <div className="flex flex-wrap gap-1.5">
+                          {EMOTION_PRESETS.map((preset) => (
+                            <button
+                              key={preset.label}
+                              type="button"
+                              onClick={() => field.onChange(preset.instruct)}
+                              className={`px-2.5 py-1 rounded-full text-xs border transition-colors ${
+                                field.value === preset.instruct
+                                  ? 'border-accent bg-accent/15 text-accent'
+                                  : 'border-border text-muted-foreground hover:text-foreground hover:border-foreground/30'
+                              }`}
+                            >
+                              {preset.emoji} {preset.label}
+                            </button>
+                          ))}
+                        </div>
                         <FormControl>
                           <Textarea
                             {...field}

@@ -8,10 +8,13 @@ import { TopNav } from '@/components/TopNav';
 import { StoriesTab } from '@/components/StoriesTab/StoriesTab';
 import { HistoryPage } from '@/components/History/HistoryPage';
 import { Toaster } from '@/components/ui/toaster';
+import { Footer } from '@/components/Footer';
+import { BottomNav } from '@/components/BottomNav';
 import { VoicesTab } from '@/components/VoicesTab/VoicesTab';
+import { TranscribeTab } from '@/components/TranscribeTab/TranscribeTab';
 import { useModelDownloadToast } from '@/lib/hooks/useModelDownloadToast';
 import { MODEL_DISPLAY_NAMES, useRestoreActiveTasks } from '@/lib/hooks/useRestoreActiveTasks';
-import { TOP_NAV_HEIGHT } from '@/lib/constants/ui';
+// TOP_NAV_HEIGHT used in TopNav.tsx; here we use md:mt-[56px] directly
 
 // Simple platform check that works in both web and Tauri
 const isMacOS = () => navigator.platform.toLowerCase().includes('mac');
@@ -24,14 +27,18 @@ function RootLayout() {
     <AppFrame>
       <TopNav isMacOS={isMacOS()} />
 
-      <main
-        className="flex-1 overflow-hidden flex flex-col"
-        style={{ marginTop: TOP_NAV_HEIGHT }}
-      >
-        <div className="container mx-auto px-8 max-w-[1800px] h-full overflow-hidden flex flex-col">
+      {/* md+: top margin for TopNav. mobile: no TopNav, bottom padding for BottomNav */}
+      <main className="flex-1 overflow-hidden flex flex-col md:mt-[56px] pb-[60px] md:pb-0">
+        <div className="container mx-auto px-4 md:px-8 max-w-[1800px] h-full overflow-hidden flex flex-col">
           <Outlet />
         </div>
       </main>
+
+      <div className="hidden md:block">
+        <Footer />
+      </div>
+
+      <BottomNav />
 
       {activeDownloads.map((download) => {
         const displayName = MODEL_DISPLAY_NAMES[download.model_name] || download.model_name;
@@ -93,6 +100,12 @@ const audioRoute = createRoute({
   component: AudioTab,
 });
 
+const transcribeRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/transcribe',
+  component: TranscribeTab,
+});
+
 const modelsRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/models',
@@ -111,6 +124,7 @@ const routeTree = rootRoute.addChildren([
   storiesRoute,
   voicesRoute,
   audioRoute,
+  transcribeRoute,
   modelsRoute,
   serverRoute,
 ]);

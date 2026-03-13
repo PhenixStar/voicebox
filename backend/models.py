@@ -11,7 +11,7 @@ class VoiceProfileCreate(BaseModel):
     """Request model for creating a voice profile."""
     name: str = Field(..., min_length=1, max_length=100)
     description: Optional[str] = Field(None, max_length=500)
-    language: str = Field(default="en", pattern="^(zh|en|ja|ko|de|fr|ru|pt|es|it)$")
+    language: str = Field(default="en", pattern="^(zh|en|ja|ko|de|fr|ru|pt|es|it|ar|fil)$")
 
 
 class VoiceProfileResponse(BaseModel):
@@ -68,7 +68,7 @@ class GenerationRequest(BaseModel):
     """
     profile_id: Optional[str] = None
     text: str = Field(..., min_length=1, max_length=5000)
-    language: str = Field(default="en", pattern="^(zh|en|ja|ko|de|fr|ru|pt|es|it)$")
+    language: str = Field(default="en", pattern="^(zh|en|ja|ko|de|fr|ru|pt|es|it|ar|fil)$")
     seed: Optional[int] = Field(None, ge=0)
     model_size: Optional[str] = Field(default=None)
     model_name: Optional[str] = Field(
@@ -80,6 +80,10 @@ class GenerationRequest(BaseModel):
         description="Built-in voice name for Kokoro/KugelAudio (e.g. af_heart, default).",
     )
     instruct: Optional[str] = Field(None, max_length=500)
+    output_format: Optional[str] = Field(
+        default="wav",
+        description="Audio output format: wav (default), mp3, ogg, flac.",
+    )
 
 
 class GenerationResponse(BaseModel):
@@ -131,7 +135,7 @@ class HistoryListResponse(BaseModel):
 
 class TranscriptionRequest(BaseModel):
     """Request model for audio transcription."""
-    language: Optional[str] = Field(None, pattern="^(en|zh)$")
+    language: Optional[str] = Field(None, pattern="^(zh|en|ja|ko|de|fr|ru|pt|es|it|ar|fil|auto)$")
 
 
 class TranscriptionResponse(BaseModel):
@@ -163,6 +167,7 @@ class ModelStatus(BaseModel):
     backend_type: Optional[str] = None  # "qwen", "kokoro", "kugelaudio", "whisper"
     model_type: Optional[str] = None    # "tts" or "stt"
     is_local: bool = False              # True if model is local-only (no HF download)
+    is_cloud: bool = False              # True if model is cloud API (e.g. ElevenLabs)
 
 
 class ModelStatusListResponse(BaseModel):
@@ -325,3 +330,20 @@ class StoryItemTrim(BaseModel):
 class StoryItemSplit(BaseModel):
     """Request model for splitting a story item."""
     split_time_ms: int = Field(..., ge=0)  # Time within the clip to split at (relative to clip start)
+
+
+class TranscriptionSegment(BaseModel):
+    """A single transcription segment with optional speaker label."""
+    start: float
+    end: float
+    text: str
+    speaker: Optional[str] = None
+
+
+class DiarizedTranscriptionResponse(BaseModel):
+    """Response model for transcription with diarization."""
+    text: str
+    duration: float
+    language: str
+    segments: List[TranscriptionSegment] = []
+    speakers: List[str] = []

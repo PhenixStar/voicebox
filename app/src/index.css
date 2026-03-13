@@ -136,6 +136,25 @@
     text-orientation: mixed;
     letter-spacing: 0.1em;
   }
+  /* Safe area padding for devices with bottom bars (iPhone notch, etc.) */
+  .safe-area-bottom {
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  /* Hide scrollbar utility */
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+/* Mobile touch target minimum: 44px for inputs/buttons on small screens */
+@media (max-width: 767px) {
+  input, select, textarea, button {
+    min-height: 44px;
+  }
 }
 
 @keyframes fadeInScale {

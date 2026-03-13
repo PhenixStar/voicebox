@@ -1,5 +1,5 @@
 import { Link, useMatchRoute } from '@tanstack/react-router';
-import { BookOpen, Box, Clock, Mic, Moon, Settings, Sun, Volume2 } from 'lucide-react';
+import { BookOpen, Box, Clock, FileText, Mic, Moon, Settings, Sun, Volume2 } from 'lucide-react';
 import voiceboxLogo from '@/assets/voicebox-logo.png';
 import { cn } from '@/lib/utils/cn';
 import { TOP_NAV_HEIGHT } from '@/lib/constants/ui';
@@ -11,6 +11,7 @@ const tabs = [
   { id: 'history', path: '/history', icon: Clock, label: 'History' },
   { id: 'voices', path: '/voices', icon: Mic, label: 'Voices' },
   { id: 'stories', path: '/stories', icon: BookOpen, label: 'Stories' },
+  { id: 'transcribe', path: '/transcribe', icon: FileText, label: 'Transcribe' },
   { id: 'models', path: '/models', icon: Box, label: 'Models' },
 ];
 
@@ -29,7 +30,7 @@ export function TopNav({ isMacOS }: TopNavProps) {
       style={{ height: TOP_NAV_HEIGHT }}
       className={cn(
         'fixed top-0 left-0 right-0 z-40 bg-sidebar border-b border-border',
-        'flex items-center px-4 gap-2',
+        'hidden md:flex items-center px-4 gap-2',
         isMacOS && 'pl-20',
       )}
     >

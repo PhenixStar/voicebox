@@ -1,7 +1,7 @@
 """Speech generation routes."""
 
 from fastapi import APIRouter, Depends, HTTPException
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 from sqlalchemy.orm import Session
 import uuid
 import asyncio
@@ -37,6 +37,7 @@ async def generate_speech(
     builtin_voice_backends = {
         "kokoro-82M": "kokoro",
         "kugelaudio-7B": "kugelaudio",
+        "elevenlabs-v2": "elevenlabs",
     }
     use_builtin_voice = model_name in builtin_voice_backends
 
@@ -56,9 +57,11 @@ async def generate_speech(
                     detail=f"voice_name is required for {model_name}",
                 )
 
+            task_manager.update_generation(generation_id, "loading_model", 10)
             backend = _get_tts_backend(builtin_voice_backends[model_name])
             await backend.load_model()
 
+            task_manager.update_generation(generation_id, "generating", 30)
             audio, sample_rate = await backend.generate(
                 text=data.text,
                 voice_prompt={"voice_name": voice_name},
@@ -116,17 +119,37 @@ async def generate_speech(
                         },
                     )
 
+            task_manager.update_generation(generation_id, "loading_model", 10)
             await tts_model.load_model_async(model_size)
+
+            task_manager.update_generation(generation_id, "generating", 30)
             audio, sample_rate = await tts_model.generate(
                 data.text, voice_prompt, data.language, data.seed, data.instruct,
             )
 
         # Common: save audio + record history
+        task_manager.update_generation(generation_id, "encoding", 80)
         duration = len(audio) / sample_rate
         audio_path = config.get_generations_dir() / f"{generation_id}.wav"
 
         from ..utils.audio import save_audio
         save_audio(audio, str(audio_path), sample_rate)
+
+        # Convert to requested format if not WAV
+        output_format = (data.output_format or "wav").lower()
+        if output_format != "wav" and output_format in ("mp3", "ogg", "flac"):
+            import subprocess
+            converted_path = audio_path.with_suffix(f".{output_format}")
+            try:
+                subprocess.run(
+                    ["ffmpeg", "-y", "-i", str(audio_path), str(converted_path)],
+                    capture_output=True, check=True, timeout=60,
+                )
+                audio_path = converted_path
+            except Exception as e:
+                # Fallback to WAV if conversion fails
+                import logging
+                logging.getLogger(__name__).warning(f"ffmpeg conversion to {output_format} failed: {e}")
 
         # Record in history only when a real profile is used (FK constraint)
         if data.profile_id:
@@ -167,12 +190,31 @@ async def generate_speech(
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@router.get("/generate/progress")
+async def generation_progress_stream():
+    """SSE endpoint for real-time generation progress updates."""
+    task_manager = get_task_manager()
+    return StreamingResponse(
+        task_manager.subscribe_generation_progress(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
+    )
+
+
 @router.get("/voices/{model_name}")
 async def get_builtin_voices(model_name: str):
     """List available built-in voices for Kokoro / KugelAudio."""
     from ..backends import get_tts_backend as _get_tts_backend
 
-    backend_map = {"kokoro-82M": "kokoro", "kugelaudio-7B": "kugelaudio"}
+    backend_map = {
+        "kokoro-82M": "kokoro",
+        "kugelaudio-7B": "kugelaudio",
+        "elevenlabs-v2": "elevenlabs",
+    }
     if model_name not in backend_map:
         raise HTTPException(status_code=400, detail=f"No built-in voices for {model_name}")
 

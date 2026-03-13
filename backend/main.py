@@ -28,6 +28,10 @@ from .routers import (
     channel_routes,
     story_routes,
     task_routes,
+    settings_routes,
+    api_v1,
+    video_import,
+    transcription_routes,
 )
 
 
@@ -38,6 +42,14 @@ async def lifespan(app: FastAPI):
     print("voicebox API starting up...")
     database.init_db()
     print(f"Database initialized at {database._db_path}")
+
+    # Seed default settings
+    db = database.SessionLocal()
+    try:
+        settings_routes.seed_defaults(db)
+        print("Settings defaults seeded")
+    finally:
+        db.close()
     backend_type = get_backend_type()
     print(f"Backend: {backend_type.upper()}")
     print(f"GPU available: {_get_gpu_status()}")
@@ -48,6 +60,13 @@ async def lifespan(app: FastAPI):
         print("Progress manager initialized with event loop")
     except Exception as e:
         print(f"Warning: Could not initialize progress manager event loop: {e}")
+
+    try:
+        from .utils.tasks import get_task_manager
+        get_task_manager().set_main_loop(asyncio.get_running_loop())
+        print("Task manager initialized with event loop")
+    except Exception as e:
+        print(f"Warning: Could not initialize task manager event loop: {e}")
 
     try:
         from huggingface_hub import constants as hf_constants
@@ -96,6 +115,10 @@ app.include_router(history_routes.router)
 app.include_router(story_routes.router)
 app.include_router(model_management.router)
 app.include_router(task_routes.router)
+app.include_router(settings_routes.router)
+app.include_router(video_import.router)
+app.include_router(transcription_routes.router)
+app.include_router(api_v1.router)
 
 
 def _get_gpu_status() -> str:

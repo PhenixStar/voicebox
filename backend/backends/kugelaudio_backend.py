@@ -61,10 +61,22 @@ class KugelAudioTTSBackend:
             model_path = str(self.MODEL_DIR)
             print(f"[KugelAudio] Loading model from {model_path} on {self.device} ...")
 
-            self.model = KugelAudioForConditionalGenerationInference.from_pretrained(
-                model_path,
-                torch_dtype=torch.bfloat16,
-            ).to(self.device)
+            # Use device_map instead of .to() to avoid
+            # "Cannot copy out of meta tensor" with lazy-loaded weights.
+            try:
+                self.model = KugelAudioForConditionalGenerationInference.from_pretrained(
+                    model_path,
+                    torch_dtype=torch.bfloat16,
+                    device_map=self.device,
+                )
+            except TypeError:
+                # Fallback: library may not support device_map —
+                # disable meta-tensor loading so .to() works.
+                self.model = KugelAudioForConditionalGenerationInference.from_pretrained(
+                    model_path,
+                    torch_dtype=torch.bfloat16,
+                    low_cpu_mem_usage=False,
+                ).to(self.device)
             self.model.eval()
             # Strip encoder weights to save VRAM (only decoders needed at inference)
             self.model.model.strip_encoders()

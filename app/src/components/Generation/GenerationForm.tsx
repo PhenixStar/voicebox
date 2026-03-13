@@ -61,8 +61,9 @@ export function GenerationForm() {
   // Build model options from API status
   const ttsModels = modelStatus?.models.filter(
     (m) =>
-      m.model_name.startsWith('qwen-tts') ||
-      BUILTIN_VOICE_MODELS.includes(m.model_name as (typeof BUILTIN_VOICE_MODELS)[number]),
+      m.model_type === 'tts' &&
+      (m.model_name.startsWith('qwen-tts') ||
+        BUILTIN_VOICE_MODELS.includes(m.model_name as (typeof BUILTIN_VOICE_MODELS)[number])),
   ) ?? [];
 
   async function onSubmit(data: Parameters<typeof handleSubmit>[0]) {
@@ -190,12 +191,13 @@ export function GenerationForm() {
                           <SelectItem
                             key={m.model_name}
                             value={m.model_name}
-                            disabled={!m.downloaded}
+                            disabled={!m.downloaded && !m.is_cloud}
                           >
                             {m.display_name}
-                            {!m.downloaded && ' (not downloaded)'}
+                            {m.is_cloud && ' ☁'}
+                            {!m.downloaded && !m.is_cloud && ' (not downloaded)'}
                             {m.is_local && m.downloaded && !m.loaded && ' (ready)'}
-                            {m.loaded && ' ✓'}
+                            {m.loaded && !m.is_cloud && ' ✓'}
                           </SelectItem>
                         ))}
                       </SelectContent>

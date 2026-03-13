@@ -110,9 +110,19 @@ class ChannelDeviceMapping(Base):
 class ProfileChannelMapping(Base):
     """Mapping between voice profiles and audio channels (many-to-many)."""
     __tablename__ = "profile_channel_mappings"
-    
+
     profile_id = Column(String, ForeignKey("profiles.id", ondelete="CASCADE"), primary_key=True)
     channel_id = Column(String, ForeignKey("audio_channels.id", ondelete="CASCADE"), primary_key=True)
+
+
+class Setting(Base):
+    """Application settings key-value store."""
+    __tablename__ = "settings"
+
+    key = Column(String, primary_key=True)
+    value = Column(Text, nullable=False, default="")
+    encrypted = Column(Boolean, default=False)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
 
 # Database setup will be initialized in init_db()

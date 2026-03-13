@@ -5,9 +5,6 @@ import ReactDOM from 'react-dom/client';
 import App from './App';
 import './index.css';
 
-// Apply dark theme on startup
-document.documentElement.classList.add('dark');
-
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {

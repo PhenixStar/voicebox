@@ -81,7 +81,9 @@ export interface HealthResponse {
   model_downloaded?: boolean;
   model_size?: string;
   gpu_available: boolean;
+  gpu_type?: string;
   vram_used_mb?: number;
+  backend_type?: string;
 }
 
 export interface ModelProgress {
@@ -105,6 +107,7 @@ export interface ModelStatus {
   backend_type?: string;
   model_type?: string;
   is_local?: boolean;
+  is_cloud?: boolean;
 }
 
 export interface ModelStatusListResponse {
@@ -207,4 +210,36 @@ export interface StoryItemTrim {
 
 export interface StoryItemSplit {
   split_time_ms: number;
+}
+
+export interface SettingResponse {
+  key: string;
+  value: string;
+  encrypted: boolean;
+  updated_at: string | null;
+}
+
+// Diarized transcription types
+export interface TranscriptionSegment {
+  start: number;
+  end: number;
+  text: string;
+  speaker: string | null;
+}
+
+export interface DiarizedTranscriptionResponse {
+  text: string;
+  duration: number;
+  language: string;
+  segments: TranscriptionSegment[];
+  speakers: string[];
+}
+
+export interface VideoImportResponse {
+  profile_id: string;
+  profile_name: string;
+  sample_id: string;
+  transcript: string;
+  clip_duration: number;
+  message: string;
 }

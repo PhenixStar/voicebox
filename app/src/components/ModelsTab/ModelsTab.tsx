@@ -22,6 +22,7 @@ import { cn } from '@/lib/utils/cn';
 export function ModelsTab() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const [loadingModels, setLoadingModels] = useState<Set<string>>(new Set());
   const [downloadingModel, setDownloadingModel] = useState<string | null>(null);
   const [downloadingDisplayName, setDownloadingDisplayName] = useState<string | null>(null);
   const audioUrl = usePlayerStore((s) => s.audioUrl);
@@ -78,6 +79,31 @@ export function ModelsTab() {
   const handleDownload = async (modelName: string) => {
     const model = modelStatus?.models.find((m) => m.model_name === modelName);
     const displayName = model?.display_name || modelName;
+
+    // Local models load synchronously -- no SSE progress stream
+    if (model?.is_local) {
+      setLoadingModels((prev) => new Set(prev).add(modelName));
+      try {
+        await apiClient.triggerModelDownload(modelName);
+        queryClient.invalidateQueries({ queryKey: ['modelStatus'] });
+      } catch (error) {
+        toast({
+          title: 'Load failed',
+          description: error instanceof Error ? error.message : 'Unknown error',
+          variant: 'destructive',
+        });
+      } finally {
+        setLoadingModels((prev) => {
+          const next = new Set(prev);
+          next.delete(modelName);
+          return next;
+        });
+        queryClient.invalidateQueries({ queryKey: ['modelStatus'] });
+      }
+      return;
+    }
+
+    // HF / remote models use SSE progress toast
     try {
       await apiClient.triggerModelDownload(modelName);
       setDownloadingModel(modelName);
@@ -98,13 +124,7 @@ export function ModelsTab() {
   };
 
   // Group models by category
-  const ttsModels =
-    modelStatus?.models.filter(
-      (m) =>
-        m.model_name.startsWith('qwen-tts') ||
-        m.model_name.startsWith('kokoro') ||
-        m.model_name.startsWith('kugelaudio'),
-    ) ?? [];
+  const ttsModels = modelStatus?.models.filter((m) => m.model_type === 'tts') ?? [];
   const sttModels = modelStatus?.models.filter((m) => m.model_name.startsWith('whisper')) ?? [];
 
   return (
@@ -139,7 +159,7 @@ export function ModelsTab() {
                   <ModelCard
                     key={model.model_name}
                     model={model}
-                    isDownloading={downloadingModel === model.model_name}
+                    isDownloading={downloadingModel === model.model_name || loadingModels.has(model.model_name)}
                     onDownload={() => handleDownload(model.model_name)}
                     onDelete={() => openDeleteDialog(model)}
                   />
@@ -154,7 +174,7 @@ export function ModelsTab() {
                   <ModelCard
                     key={model.model_name}
                     model={model}
-                    isDownloading={downloadingModel === model.model_name}
+                    isDownloading={downloadingModel === model.model_name || loadingModels.has(model.model_name)}
                     onDownload={() => handleDownload(model.model_name)}
                     onDelete={() => openDeleteDialog(model)}
                   />

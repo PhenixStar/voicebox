@@ -143,6 +143,9 @@ def get_tts_backend(backend_type_override: Optional[str] = None) -> TTSBackend:
         elif key == "kugelaudio":
             from .kugelaudio_backend import KugelAudioTTSBackend
             _tts_backends[key] = KugelAudioTTSBackend()
+        elif key == "elevenlabs":
+            from .elevenlabs_backend import ElevenLabsTTSBackend
+            _tts_backends[key] = ElevenLabsTTSBackend()
         else:
             # Default: PyTorch Qwen backend
             from .pytorch_backend import PyTorchTTSBackend

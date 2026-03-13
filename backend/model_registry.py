@@ -90,6 +90,16 @@ def get_model_configs() -> list[dict]:
             "model_type": "tts",
             "is_local": True,
         },
+        {
+            "model_name": "elevenlabs-v2",
+            "display_name": "ElevenLabs v2",
+            "hf_repo_id": None,
+            "model_size": "cloud",
+            "backend_type": "elevenlabs",
+            "model_type": "tts",
+            "is_local": False,
+            "is_cloud": True,
+        },
     ]
 
 

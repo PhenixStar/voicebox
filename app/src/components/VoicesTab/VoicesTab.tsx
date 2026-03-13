@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { Mic, Plus, Search } from 'lucide-react';
+import { Download, Mic, Plus, Search } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -12,6 +12,7 @@ import { cn } from '@/lib/utils/cn';
 import { usePlayerStore } from '@/stores/playerStore';
 import { useUIStore } from '@/stores/uiStore';
 import { BuiltinVoiceSection, VoiceCard, VoiceEmptyState } from './voice-library-cards';
+import { ImportVoiceDialog } from './import-voice-dialog';
 
 export function VoicesTab() {
   const { data: profiles, isLoading } = useProfiles();
@@ -19,6 +20,7 @@ export function VoicesTab() {
   const setDialogOpen = useUIStore((s) => s.setProfileDialogOpen);
   const setEditingProfileId = useUIStore((s) => s.setEditingProfileId);
   const [searchQuery, setSearchQuery] = useState('');
+  const [importOpen, setImportOpen] = useState(false);
   const audioUrl = usePlayerStore((s) => s.audioUrl);
   const isPlayerVisible = !!audioUrl;
 
@@ -28,13 +30,14 @@ export function VoicesTab() {
     queryFn: () => apiClient.getModelStatus(),
   });
 
-  // Downloaded built-in voice models (kokoro / kugelaudio)
+  // Downloaded built-in voice models (kokoro / kugelaudio / elevenlabs)
   const builtinModels = useMemo(
     () =>
       modelStatus?.models.filter(
         (m) =>
-          (m.model_name.startsWith('kokoro') || m.model_name.startsWith('kugelaudio')) &&
-          m.downloaded,
+          ((m.model_name.startsWith('kokoro') || m.model_name.startsWith('kugelaudio')) &&
+            m.downloaded) ||
+          (m.is_cloud && m.loaded),
       ) ?? [],
     [modelStatus],
   );
@@ -74,14 +77,19 @@ export function VoicesTab() {
           <Mic className="h-5 w-5 text-muted-foreground" />
           <h1 className="text-2xl font-bold">Voice Library</h1>
         </div>
-        <Button
-          onClick={() => {
-            setEditingProfileId(null);
-            setDialogOpen(true);
-          }}
-        >
-          <Plus className="h-4 w-4 mr-2" /> Create Voice
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={() => setImportOpen(true)}>
+            <Download className="h-4 w-4 mr-2" /> Import
+          </Button>
+          <Button
+            onClick={() => {
+              setEditingProfileId(null);
+              setDialogOpen(true);
+            }}
+          >
+            <Plus className="h-4 w-4 mr-2" /> Create Voice
+          </Button>
+        </div>
       </div>
 
       {/* Search */}
@@ -126,6 +134,7 @@ export function VoicesTab() {
       </div>
 
       <ProfileForm />
+      <ImportVoiceDialog open={importOpen} onOpenChange={setImportOpen} />
     </div>
   );
 }
