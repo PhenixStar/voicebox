@@ -9,7 +9,7 @@ import tempfile
 import io
 from pathlib import Path
 
-from .. import models, history, export_import, transcribe
+from .. import models, history, export_import, transcribe, config
 from ..database import get_db, Generation as DBGeneration, VoiceProfile as DBVoiceProfile
 from ..utils.tasks import get_task_manager
 
@@ -248,12 +248,18 @@ async def transcribe_audio(
 
 @router.get("/audio/{generation_id}")
 async def get_audio(generation_id: str, db: Session = Depends(get_db)):
-    """Serve generated audio file."""
-    generation = await history.get_generation(generation_id, db)
-    if not generation:
-        raise HTTPException(status_code=404, detail="Generation not found")
+    """Serve generated audio file.
 
-    audio_path = Path(generation.audio_path)
+    Checks DB first, then falls back to filesystem for built-in voice
+    generations that aren't stored in history.
+    """
+    generation = await history.get_generation(generation_id, db)
+    if generation:
+        audio_path = Path(generation.audio_path)
+    else:
+        # Fallback: built-in voice generations skip DB but save to disk
+        audio_path = config.get_generations_dir() / f"{generation_id}.wav"
+
     if not audio_path.exists():
         raise HTTPException(status_code=404, detail="Audio file not found")
 
