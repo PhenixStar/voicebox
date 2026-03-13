@@ -4,6 +4,8 @@ FastAPI application for voicebox backend.
 Handles voice cloning, generation history, and server mode.
 """
 
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
@@ -28,10 +30,47 @@ from .routers import (
     task_routes,
 )
 
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Application lifespan: startup and shutdown logic."""
+    # Startup
+    print("voicebox API starting up...")
+    database.init_db()
+    print(f"Database initialized at {database._db_path}")
+    backend_type = get_backend_type()
+    print(f"Backend: {backend_type.upper()}")
+    print(f"GPU available: {_get_gpu_status()}")
+
+    try:
+        progress_manager = get_progress_manager()
+        progress_manager._set_main_loop(asyncio.get_running_loop())
+        print("Progress manager initialized with event loop")
+    except Exception as e:
+        print(f"Warning: Could not initialize progress manager event loop: {e}")
+
+    try:
+        from huggingface_hub import constants as hf_constants
+        cache_dir = Path(hf_constants.HF_HUB_CACHE)
+        cache_dir.mkdir(parents=True, exist_ok=True)
+        print(f"HuggingFace cache directory: {cache_dir}")
+    except Exception as e:
+        print(f"Warning: Could not create HuggingFace cache directory: {e}")
+        print("Model downloads may fail. Please ensure the directory exists and has write permissions.")
+
+    yield
+
+    # Shutdown
+    print("voicebox API shutting down...")
+    tts.unload_tts_model()
+    transcribe.unload_whisper_model()
+
+
 app = FastAPI(
     title="voicebox API",
     description="Production-quality Qwen3-TTS voice cloning API",
     version=__version__,
+    lifespan=lifespan,
 )
 
 # CORS middleware
@@ -71,44 +110,6 @@ def _get_gpu_status() -> str:
     return "None (CPU only)"
 
 
-@app.on_event("startup")
-async def startup_event():
-    """Run on application startup."""
-    print("voicebox API starting up...")
-    database.init_db()
-    print(f"Database initialized at {database._db_path}")
-    backend_type = get_backend_type()
-    print(f"Backend: {backend_type.upper()}")
-    print(f"GPU available: {_get_gpu_status()}")
-
-    # Initialize progress manager with main event loop for thread-safe operations
-    try:
-        progress_manager = get_progress_manager()
-        progress_manager._set_main_loop(asyncio.get_running_loop())
-        print("Progress manager initialized with event loop")
-    except Exception as e:
-        print(f"Warning: Could not initialize progress manager event loop: {e}")
-
-    # Ensure HuggingFace cache directory exists
-    try:
-        from huggingface_hub import constants as hf_constants
-        cache_dir = Path(hf_constants.HF_HUB_CACHE)
-        cache_dir.mkdir(parents=True, exist_ok=True)
-        print(f"HuggingFace cache directory: {cache_dir}")
-    except Exception as e:
-        print(f"Warning: Could not create HuggingFace cache directory: {e}")
-        print("Model downloads may fail. Please ensure the directory exists and has write permissions.")
-
-
-@app.on_event("shutdown")
-async def shutdown_event():
-    """Run on application shutdown."""
-    print("voicebox API shutting down...")
-    # Unload models to free memory
-    tts.unload_tts_model()
-    transcribe.unload_whisper_model()
-
-
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="voicebox backend server")
     parser.add_argument(
@@ -134,9 +135,6 @@ if __name__ == "__main__":
     # Set data directory if provided
     if args.data_dir:
         config.set_data_dir(args.data_dir)
-
-    # Initialize database after data directory is set
-    database.init_db()
 
     uvicorn.run(
         "backend.main:app",

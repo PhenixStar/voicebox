@@ -63,6 +63,11 @@ class TaskManager:
         """Mark a generation as complete."""
         if task_id in self._active_generations:
             del self._active_generations[task_id]
+
+    def error_generation(self, task_id: str, error: str) -> None:
+        """Mark a generation as failed and remove it."""
+        if task_id in self._active_generations:
+            del self._active_generations[task_id]
     
     def get_active_downloads(self) -> List[DownloadTask]:
         """Get all active downloads."""

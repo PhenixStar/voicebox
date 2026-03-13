@@ -1,7 +1,7 @@
 """History, transcription, audio serving, and export routes."""
 
 from fastapi import APIRouter, Depends, UploadFile, File, Form, HTTPException
-from fastapi.responses import FileResponse, StreamingResponse
+from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 from sqlalchemy.orm import Session
 from typing import Optional
 import asyncio
@@ -220,9 +220,9 @@ async def transcribe_audio(
             get_task_manager().start_download(progress_model_name)
             asyncio.create_task(download_whisper_background())
 
-            raise HTTPException(
+            return JSONResponse(
                 status_code=202,
-                detail={
+                content={
                     "message": f"Whisper model {model_size} is being downloaded. Please wait and try again.",
                     "model_name": progress_model_name,
                     "downloading": True

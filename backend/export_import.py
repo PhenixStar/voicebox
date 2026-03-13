@@ -6,6 +6,8 @@ Also handles exporting individual generations.
 """
 
 import json
+import os
+import tempfile
 import zipfile
 import io
 from pathlib import Path
@@ -152,7 +154,11 @@ async def import_profile_from_zip(file_bytes: bytes, db: Session) -> VoiceProfil
 
             # Check for path traversal attacks
             for entry in namelist:
-                if entry.startswith('/') or '..' in entry:
+                # Reject absolute paths, backslashes, and normalized paths that escape
+                normalized = os.path.normpath(entry)
+                if (entry.startswith('/') or '\\' in entry
+                        or normalized.startswith('..')
+                        or os.path.isabs(normalized)):
                     raise ValueError(f"ZIP contains suspicious path: {entry}")
 
             # Check cumulative uncompressed size
@@ -209,7 +215,6 @@ async def import_profile_from_zip(file_bytes: bytes, db: Session) -> VoiceProfil
                     try:
                         avatar_file = avatar_files[0]
                         # Extract to temporary file
-                        import tempfile
                         with tempfile.NamedTemporaryFile(suffix=Path(avatar_file).suffix, delete=False) as tmp:
                             tmp.write(zip_file.read(avatar_file))
                             tmp_path = tmp.name
@@ -235,7 +240,6 @@ async def import_profile_from_zip(file_bytes: bytes, db: Session) -> VoiceProfil
                         raise ValueError(f"Sample file not found in ZIP: {zip_path}")
 
                     # Extract to temporary file
-                    import tempfile
                     with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmp:
                         tmp.write(zip_file.read(zip_path))
                         tmp_path = tmp.name
@@ -345,11 +349,8 @@ async def import_generation_from_zip(file_bytes: bytes, db: Session) -> dict:
     Raises:
         ValueError: If ZIP is invalid or missing required files
     """
-    from pathlib import Path
-    import tempfile
     import shutil
     from datetime import datetime
-    from . import config
     
     zip_buffer = io.BytesIO(file_bytes)
     
@@ -366,7 +367,10 @@ async def import_generation_from_zip(file_bytes: bytes, db: Session) -> dict:
 
             # Check for path traversal attacks
             for entry in namelist:
-                if entry.startswith('/') or '..' in entry:
+                normalized = os.path.normpath(entry)
+                if (entry.startswith('/') or '\\' in entry
+                        or normalized.startswith('..')
+                        or os.path.isabs(normalized)):
                     raise ValueError(f"ZIP contains suspicious path: {entry}")
 
             # Check cumulative uncompressed size

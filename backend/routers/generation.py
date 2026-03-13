@@ -1,6 +1,7 @@
 """Speech generation routes."""
 
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 import uuid
 import asyncio
@@ -105,9 +106,10 @@ async def generate_speech(
                     task_manager.start_download(dl_model_name)
                     asyncio.create_task(download_model_background())
 
-                    raise HTTPException(
+                    task_manager.complete_generation(generation_id)
+                    return JSONResponse(
                         status_code=202,
-                        detail={
+                        content={
                             "message": f"Model {model_size} is being downloaded. Please wait and try again.",
                             "model_name": dl_model_name,
                             "downloading": True,
@@ -156,13 +158,12 @@ async def generate_speech(
         return generation
 
     except ValueError as e:
-        task_manager.complete_generation(generation_id)
+        task_manager.error_generation(generation_id, str(e))
         raise HTTPException(status_code=400, detail=str(e))
     except HTTPException:
-        task_manager.complete_generation(generation_id)
         raise
     except Exception as e:
-        task_manager.complete_generation(generation_id)
+        task_manager.error_generation(generation_id, str(e))
         raise HTTPException(status_code=500, detail=str(e))
 
 

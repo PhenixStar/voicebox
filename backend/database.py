@@ -32,7 +32,7 @@ class ProfileSample(Base):
     __tablename__ = "profile_samples"
     
     id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
-    profile_id = Column(String, ForeignKey("profiles.id"), nullable=False)
+    profile_id = Column(String, ForeignKey("profiles.id", ondelete="CASCADE"), nullable=False)
     audio_path = Column(String, nullable=False)
     reference_text = Column(Text, nullable=False)
 
@@ -42,7 +42,7 @@ class Generation(Base):
     __tablename__ = "generations"
 
     id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
-    profile_id = Column(String, ForeignKey("profiles.id"), nullable=False)
+    profile_id = Column(String, ForeignKey("profiles.id", ondelete="CASCADE"), nullable=False)
     text = Column(Text, nullable=False)
     language = Column(String, default="en")
     audio_path = Column(String, nullable=False)
@@ -68,8 +68,8 @@ class StoryItem(Base):
     __tablename__ = "story_items"
     
     id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
-    story_id = Column(String, ForeignKey("stories.id"), nullable=False)
-    generation_id = Column(String, ForeignKey("generations.id"), nullable=False)
+    story_id = Column(String, ForeignKey("stories.id", ondelete="CASCADE"), nullable=False)
+    generation_id = Column(String, ForeignKey("generations.id", ondelete="CASCADE"), nullable=False)
     start_time_ms = Column(Integer, nullable=False, default=0)  # Milliseconds from story start
     track = Column(Integer, nullable=False, default=0)  # Track number (0 = main track)
     trim_start_ms = Column(Integer, nullable=False, default=0)  # Milliseconds trimmed from start
@@ -103,7 +103,7 @@ class ChannelDeviceMapping(Base):
     __tablename__ = "channel_device_mappings"
     
     id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
-    channel_id = Column(String, ForeignKey("audio_channels.id"), nullable=False)
+    channel_id = Column(String, ForeignKey("audio_channels.id", ondelete="CASCADE"), nullable=False)
     device_id = Column(String, nullable=False)  # OS device identifier
 
 
@@ -111,8 +111,8 @@ class ProfileChannelMapping(Base):
     """Mapping between voice profiles and audio channels (many-to-many)."""
     __tablename__ = "profile_channel_mappings"
     
-    profile_id = Column(String, ForeignKey("profiles.id"), primary_key=True)
-    channel_id = Column(String, ForeignKey("audio_channels.id"), primary_key=True)
+    profile_id = Column(String, ForeignKey("profiles.id", ondelete="CASCADE"), primary_key=True)
+    channel_id = Column(String, ForeignKey("audio_channels.id", ondelete="CASCADE"), primary_key=True)
 
 
 # Database setup will be initialized in init_db()
