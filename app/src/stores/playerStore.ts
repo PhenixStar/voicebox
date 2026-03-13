@@ -13,6 +13,7 @@ interface PlayerState {
   shouldRestart: boolean;
   shouldAutoPlay: boolean;
   onFinish: (() => void) | null;
+  playbackRate: number;
 
   setAudio: (url: string, id: string, profileId: string | null, title?: string) => void;
   setAudioWithAutoPlay: (url: string, id: string, profileId: string | null, title?: string) => void;
@@ -20,6 +21,7 @@ interface PlayerState {
   setCurrentTime: (time: number) => void;
   setDuration: (duration: number) => void;
   setVolume: (volume: number) => void;
+  setPlaybackRate: (rate: number) => void;
   toggleLoop: () => void;
   restartCurrentAudio: () => void;
   clearRestartFlag: () => void;
@@ -41,6 +43,7 @@ export const usePlayerStore = create<PlayerState>((set) => ({
   shouldRestart: false,
   shouldAutoPlay: false,
   onFinish: null,
+  playbackRate: 1,
 
   setAudio: (url, id, profileId, title) =>
     set({
@@ -68,6 +71,7 @@ export const usePlayerStore = create<PlayerState>((set) => ({
   setCurrentTime: (time) => set({ currentTime: time }),
   setDuration: (duration) => set({ duration }),
   setVolume: (volume) => set({ volume }),
+  setPlaybackRate: (rate) => set({ playbackRate: rate }),
   toggleLoop: () => set((state) => ({ isLooping: !state.isLooping })),
   restartCurrentAudio: () => set({ shouldRestart: true }),
   clearRestartFlag: () => set({ shouldRestart: false }),
@@ -86,5 +90,6 @@ export const usePlayerStore = create<PlayerState>((set) => ({
       shouldRestart: false,
       shouldAutoPlay: false,
       onFinish: null,
+      playbackRate: 1,
     }),
 }));

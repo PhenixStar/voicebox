@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import select
 
 from .models import (
+    AudioQualityMetrics,
     VoiceProfileCreate,
     VoiceProfileResponse,
     ProfileSampleCreate,
@@ -20,7 +21,7 @@ from .database import (
     VoiceProfile as DBVoiceProfile,
     ProfileSample as DBProfileSample,
 )
-from .utils.audio import validate_reference_audio, load_audio, save_audio
+from .utils.audio import compute_audio_quality, validate_reference_audio, load_audio, save_audio
 from .utils.images import validate_image, process_avatar
 from .utils.cache import _get_cache_dir, clear_profile_cache
 from .tts import get_tts_model
@@ -104,7 +105,10 @@ async def add_profile_sample(
     dest_path = profile_dir / f"{sample_id}.wav"
     audio, sr = load_audio(audio_path)
     save_audio(audio, str(dest_path), sr)
-    
+
+    # Compute quality metrics on the processed audio
+    quality = compute_audio_quality(audio, sr)
+
     # Create database entry
     db_sample = DBProfileSample(
         id=sample_id,
@@ -112,20 +116,21 @@ async def add_profile_sample(
         audio_path=str(dest_path),
         reference_text=reference_text,
     )
-    
+
     db.add(db_sample)
-    
+
     # Update profile timestamp
     profile.updated_at = datetime.utcnow()
-    
+
     db.commit()
     db.refresh(db_sample)
-    
+
     # Invalidate combined audio cache for this profile
-    # Since a new sample was added, any cached combined audio is now stale
     clear_profile_cache(profile_id)
-    
-    return ProfileSampleResponse.model_validate(db_sample)
+
+    response = ProfileSampleResponse.model_validate(db_sample)
+    response.quality_metrics = AudioQualityMetrics(**quality)
+    return response
 
 
 async def get_profile(
@@ -233,7 +238,11 @@ async def delete_profile(
     profile = db.query(DBVoiceProfile).filter_by(id=profile_id).first()
     if not profile:
         return False
-    
+
+    # Delete all generations for this profile
+    from .history import delete_generations_by_profile
+    await delete_generations_by_profile(profile_id, db)
+
     # Delete samples from database
     db.query(DBProfileSample).filter_by(profile_id=profile_id).delete()
     

@@ -1,17 +1,49 @@
 import { useQuery } from '@tanstack/react-query';
-import { Pause, Play, Repeat, Volume2, VolumeX, X } from 'lucide-react';
+import { Download, Pause, Play, Repeat, Volume2, VolumeX, X } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import WaveSurfer from 'wavesurfer.js';
 import { Button } from '@/components/ui/button';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Slider } from '@/components/ui/slider';
 import { apiClient } from '@/lib/api/client';
+
+import { useExportGenerationAudio } from '@/lib/hooks/useHistory';
 import { formatAudioDuration } from '@/lib/utils/audio';
+import { cn } from '@/lib/utils/cn';
 import { debug } from '@/lib/utils/debug';
 import { usePlayerStore } from '@/stores/playerStore';
 import { usePlatform } from '@/platform/PlatformContext';
 
+/** Download button sub-component for exporting audio */
+function DownloadButton({ audioId, title }: { audioId: string | null; title: string | null }) {
+  const exportAudio = useExportGenerationAudio();
+
+  if (!audioId) return null;
+
+  return (
+    <Button
+      variant="ghost"
+      size="icon"
+      className="h-8 w-8"
+      onClick={() => exportAudio.mutate({ generationId: audioId, text: title || 'audio' })}
+      disabled={exportAudio.isPending}
+      title="Download audio"
+    >
+      <Download className="h-3.5 w-3.5" />
+    </Button>
+  );
+}
+
 export function AudioPlayer() {
   const platform = usePlatform();
+  // No sidebar offset needed — full-width bottom bar
+
   const {
     audioUrl,
     audioId,
@@ -23,6 +55,8 @@ export function AudioPlayer() {
     volume,
     isLooping,
     shouldRestart,
+    playbackRate,
+    setPlaybackRate,
     setIsPlaying,
     setCurrentTime,
     setDuration,
@@ -135,8 +169,9 @@ export function AudioPlayer() {
           progressColor: progressColor,
           cursorColor: cursorColor,
           barWidth: 2,
+          barGap: 1,
           barRadius: 2,
-          height: 80,
+          height: 40,
           normalize: true,
           backend: 'WebAudio',
           interact: true, // Enable interaction (click to seek)
@@ -627,6 +662,13 @@ export function AudioPlayer() {
     }
   }, [volume]);
 
+  // Sync playback rate with WaveSurfer
+  useEffect(() => {
+    if (wavesurferRef.current) {
+      wavesurferRef.current.setPlaybackRate(playbackRate);
+    }
+  }, [playbackRate]);
+
   // Mark as initialized when audio is ready, reset when audioId changes
   useEffect(() => {
     if (duration > 0 && audioId) {
@@ -786,12 +828,6 @@ export function AudioPlayer() {
     }
   };
 
-  const handleSeek = (value: number[]) => {
-    if (!wavesurferRef.current || duration === 0) return;
-    const progress = value[0] / 100;
-    wavesurferRef.current.seekTo(progress);
-  };
-
   const handleVolumeChange = (value: number[]) => {
     setVolume(value[0] / 100);
   };
@@ -820,92 +856,107 @@ export function AudioPlayer() {
   }
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 border-t bg-background/95 backdrop-blur supports-backdrop-filter:bg-background/60 z-50">
-      <div className="container mx-auto px-4 py-3 max-w-7xl">
-        <div className="flex items-center gap-4">
-          {/* Play/Pause Button */}
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={handlePlayPause}
-            disabled={isLoading || duration === 0}
-            className="shrink-0"
-            title={duration === 0 && !isLoading ? 'Audio not loaded' : ''}
-          >
-            {isPlaying ? <Pause className="h-5 w-5" /> : <Play className="h-5 w-5" />}
-          </Button>
+    <div
+      className="fixed bottom-0 right-0 border-t border-border bg-card/95 backdrop-blur z-50 transition-all duration-200"
+      style={{ left: 0 }}
+    >
+      {/* Info Row */}
+      <div className="px-4 pt-2.5 flex items-center gap-2 text-xs">
+        {title && (
+          <span className="font-medium text-foreground truncate max-w-[300px]">{title}</span>
+        )}
+      </div>
 
-          {/* Waveform */}
-          <div className="flex-1 min-w-0 flex flex-col gap-1">
-            <div ref={waveformRef} className="w-full min-h-[80px]" />
-            {duration > 0 && (
-              <Slider
-                value={duration > 0 ? [(currentTime / duration) * 100] : [0]}
-                onValueChange={handleSeek}
-                max={100}
-                step={0.1}
-                className="w-full"
-              />
-            )}
-            {isLoading && (
-              <div className="text-xs text-muted-foreground text-center py-2">Loading audio...</div>
-            )}
-            {error && <div className="text-xs text-destructive text-center py-2">{error}</div>}
-          </div>
+      {/* Controls Row */}
+      <div className="px-4 pb-2.5 pt-1.5 flex items-center gap-3">
+        {/* Play/Pause */}
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={handlePlayPause}
+          disabled={isLoading || duration === 0}
+          className="shrink-0 h-9 w-9 rounded-full bg-accent/10 hover:bg-accent/20"
+        >
+          {isPlaying ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
+        </Button>
 
-          {/* Time Display */}
-          <div className="flex items-center gap-2 text-sm text-muted-foreground shrink-0 min-w-[100px]">
-            <span className="font-mono">{formatAudioDuration(currentTime)}</span>
-            <span>/</span>
-            <span className="font-mono">{formatAudioDuration(duration)}</span>
-          </div>
-
-          {/* Title */}
-          {title && (
-            <div className="text-sm font-medium truncate max-w-[200px] shrink-0">{title}</div>
+        {/* Waveform */}
+        <div className="flex-1 min-w-0">
+          <div ref={waveformRef} className="w-full min-h-[40px]" />
+          {isLoading && (
+            <div className="text-xs text-muted-foreground text-center">Loading...</div>
           )}
-
-          {/* Loop Button */}
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={toggleLoop}
-            className={isLooping ? 'text-primary' : ''}
-            title="Toggle loop"
-          >
-            <Repeat className="h-4 w-4" />
-          </Button>
-
-          {/* Volume Control */}
-          <div className="flex items-center gap-2 shrink-0 w-[120px]">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => setVolume(volume > 0 ? 0 : 1)}
-              className="h-8 w-8"
-            >
-              {volume > 0 ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4" />}
-            </Button>
-            <Slider
-              value={[volume * 100]}
-              onValueChange={handleVolumeChange}
-              max={100}
-              step={1}
-              className="flex-1"
-            />
-          </div>
-
-          {/* Close Button */}
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={handleClose}
-            className="shrink-0"
-            title="Close player"
-          >
-            <X className="h-5 w-5" />
-          </Button>
+          {error && <div className="text-xs text-destructive text-center">{error}</div>}
         </div>
+
+        {/* Time */}
+        <div className="text-xs text-muted-foreground shrink-0 font-mono">
+          {formatAudioDuration(currentTime)} / {formatAudioDuration(duration)}
+        </div>
+
+        {/* Speed */}
+        <Select
+          value={String(playbackRate)}
+          onValueChange={(v) => setPlaybackRate(Number(v))}
+        >
+          <SelectTrigger className="h-7 w-16 text-xs border-border">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {[0.5, 0.75, 1, 1.25, 1.5, 2].map((rate) => (
+              <SelectItem key={rate} value={String(rate)} className="text-xs">
+                {rate}x
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
+        {/* Loop */}
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={toggleLoop}
+          className={cn('h-8 w-8', isLooping && 'text-accent')}
+          title="Toggle loop"
+        >
+          <Repeat className="h-3.5 w-3.5" />
+        </Button>
+
+        {/* Download */}
+        <DownloadButton audioId={audioId} title={title} />
+
+        {/* Volume */}
+        <div className="flex items-center gap-1 shrink-0">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setVolume(volume > 0 ? 0 : 1)}
+            className="h-8 w-8"
+          >
+            {volume > 0 ? (
+              <Volume2 className="h-3.5 w-3.5" />
+            ) : (
+              <VolumeX className="h-3.5 w-3.5" />
+            )}
+          </Button>
+          <Slider
+            value={[volume * 100]}
+            onValueChange={handleVolumeChange}
+            max={100}
+            step={1}
+            className="w-20"
+          />
+        </div>
+
+        {/* Close */}
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={handleClose}
+          className="h-8 w-8 shrink-0"
+        >
+          <X className="h-4 w-4" />
+        </Button>
       </div>
     </div>
   );

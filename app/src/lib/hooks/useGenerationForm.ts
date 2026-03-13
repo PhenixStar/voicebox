@@ -15,10 +15,20 @@ const generationSchema = z.object({
   language: z.enum(LANGUAGE_CODES as [LanguageCode, ...LanguageCode[]]),
   seed: z.number().int().optional(),
   modelSize: z.enum(['1.7B', '0.6B']).optional(),
+  modelName: z.string().optional(),
+  voiceName: z.string().optional(),
   instruct: z.string().max(500).optional(),
 });
 
 export type GenerationFormValues = z.infer<typeof generationSchema>;
+
+// Models that use built-in voices (no profile needed)
+export const BUILTIN_VOICE_MODELS = ['kokoro-82M', 'kugelaudio-7B'] as const;
+
+// Check if a model uses built-in voices
+export function isBuiltinVoiceModel(modelName?: string): boolean {
+  return BUILTIN_VOICE_MODELS.includes(modelName as (typeof BUILTIN_VOICE_MODELS)[number]);
+}
 
 interface UseGenerationFormOptions {
   onSuccess?: (generationId: string) => void;
@@ -46,6 +56,8 @@ export function useGenerationForm(options: UseGenerationFormOptions = {}) {
       language: 'en',
       seed: undefined,
       modelSize: '1.7B',
+      modelName: 'qwen-tts-1.7B',
+      voiceName: undefined,
       instruct: '',
       ...options.defaultValues,
     },
@@ -55,10 +67,23 @@ export function useGenerationForm(options: UseGenerationFormOptions = {}) {
     data: GenerationFormValues,
     selectedProfileId: string | null,
   ): Promise<void> {
-    if (!selectedProfileId) {
+    const useBuiltinVoice = isBuiltinVoiceModel(data.modelName);
+
+    // Qwen models require a profile with samples
+    if (!useBuiltinVoice && !selectedProfileId) {
       toast({
         title: 'No profile selected',
-        description: 'Please select a voice profile from the cards above.',
+        description: 'Qwen TTS requires a voice profile. Select one above or use Kokoro/KugelAudio for built-in voices.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    // Built-in voice models require a voice selection
+    if (useBuiltinVoice && !data.voiceName) {
+      toast({
+        title: 'No voice selected',
+        description: 'Please select a built-in voice for this model.',
         variant: 'destructive',
       });
       return;
@@ -67,13 +92,13 @@ export function useGenerationForm(options: UseGenerationFormOptions = {}) {
     try {
       setIsGenerating(true);
 
-      const modelName = `qwen-tts-${data.modelSize}`;
-      const displayName = data.modelSize === '1.7B' ? 'Qwen TTS 1.7B' : 'Qwen TTS 0.6B';
+      const modelName = data.modelName || `qwen-tts-${data.modelSize}`;
+      const displayName = modelName;
 
+      // Check if model is downloaded
       try {
         const modelStatus = await apiClient.getModelStatus();
         const model = modelStatus.models.find((m) => m.model_name === modelName);
-
         if (model && !model.downloaded) {
           setDownloadingModelName(modelName);
           setDownloadingDisplayName(displayName);
@@ -83,11 +108,13 @@ export function useGenerationForm(options: UseGenerationFormOptions = {}) {
       }
 
       const result = await generation.mutateAsync({
-        profile_id: selectedProfileId,
+        profile_id: useBuiltinVoice ? undefined : selectedProfileId!,
         text: data.text,
-        language: data.language,
+        language: data.language as LanguageCode,
         seed: data.seed,
-        model_size: data.modelSize,
+        model_size: useBuiltinVoice ? undefined : data.modelSize,
+        model_name: data.modelName,
+        voice_name: useBuiltinVoice ? data.voiceName : undefined,
         instruct: data.instruct || undefined,
       });
 
@@ -97,7 +124,7 @@ export function useGenerationForm(options: UseGenerationFormOptions = {}) {
       });
 
       const audioUrl = apiClient.getAudioUrl(result.id);
-      setAudioWithAutoPlay(audioUrl, result.id, selectedProfileId, data.text.substring(0, 50));
+      setAudioWithAutoPlay(audioUrl, result.id, selectedProfileId || '', data.text.substring(0, 50));
 
       form.reset();
       options.onSuccess?.(result.id);

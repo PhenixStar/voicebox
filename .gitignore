@@ -57,3 +57,6 @@ tauri/src-tauri/binaries/*
 tmp/
 temp/
 *.tmp
+
+# Local tooling
+.claude-flow/

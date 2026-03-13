@@ -29,11 +29,14 @@ export interface ProfileSampleResponse {
 }
 
 export interface GenerationRequest {
-  profile_id: string;
+  profile_id?: string;
   text: string;
   language: LanguageCode;
   seed?: number;
   model_size?: '1.7B' | '0.6B';
+  model_name?: string;
+  voice_name?: string;
+  instruct?: string;
 }
 
 export interface GenerationResponse {
@@ -96,9 +99,12 @@ export interface ModelStatus {
   model_name: string;
   display_name: string;
   downloaded: boolean;
-  downloading: boolean;  // True if download is in progress
+  downloading: boolean;
   size_mb?: number;
   loaded: boolean;
+  backend_type?: string;
+  model_type?: string;
+  is_local?: boolean;
 }
 
 export interface ModelStatusListResponse {

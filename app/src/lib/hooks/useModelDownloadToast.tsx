@@ -47,7 +47,7 @@ export function useModelDownloadToast({
       displayName,
     });
 
-    if (!enabled || !serverUrl || !modelName) {
+    if (!enabled || serverUrl == null || !modelName) {
       console.log('[useModelDownloadToast] Not enabled, skipping');
       return;
     }

@@ -13,6 +13,7 @@ pub struct AudioOutputDevice {
 pub struct AudioOutputState {
     host: Host,
     stop_flag: Arc<AtomicBool>,
+    active_stream: Mutex<Option<cpal::Stream>>,
 }
 
 impl AudioOutputState {
@@ -20,13 +21,16 @@ impl AudioOutputState {
         Self {
             host: cpal::default_host(),
             stop_flag: Arc::new(AtomicBool::new(false)),
+            active_stream: Mutex::new(None),
         }
     }
 
     pub fn stop_all_playback(&self) -> Result<(), String> {
         eprintln!("stop_all_playback: Setting stop flag");
         self.stop_flag.store(true, Ordering::Relaxed);
-        eprintln!("stop_all_playback: Stop flag set - active streams will output silence");
+        // Drop the active stream to release audio device
+        *self.active_stream.lock().unwrap() = None;
+        eprintln!("stop_all_playback: Stop flag set and stream released");
         Ok(())
     }
 
@@ -401,8 +405,11 @@ impl AudioOutputState {
             eprintln!("play_to_device: Failed to play stream: {}", e);
             format!("Failed to play stream: {}", e)
         })?;
-        
+
         eprintln!("play_to_device: Stream started successfully");
+
+        // Store stream handle to keep it alive during playback
+        *self.active_stream.lock().unwrap() = Some(stream);
 
         eprintln!("play_to_device: Function completed successfully");
         Ok(())

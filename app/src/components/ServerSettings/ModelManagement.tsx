@@ -185,6 +185,41 @@ export function ModelManagement() {
               </div>
             </div>
 
+            {/* Local TTS Models (Kokoro, KugelAudio) */}
+            {modelStatus.models.some(
+              (m) => m.model_name.startsWith('kokoro') || m.model_name.startsWith('kugelaudio'),
+            ) && (
+              <div>
+                <h3 className="text-sm font-semibold mb-3 text-muted-foreground">
+                  Additional Voice Models
+                </h3>
+                <div className="space-y-2">
+                  {modelStatus.models
+                    .filter(
+                      (m) =>
+                        m.model_name.startsWith('kokoro') || m.model_name.startsWith('kugelaudio'),
+                    )
+                    .map((model) => (
+                      <ModelItem
+                        key={model.model_name}
+                        model={model}
+                        onDownload={() => handleDownload(model.model_name)}
+                        onDelete={() => {
+                          setModelToDelete({
+                            name: model.model_name,
+                            displayName: model.display_name,
+                            sizeMb: model.size_mb,
+                          });
+                          setDeleteDialogOpen(true);
+                        }}
+                        isDownloading={downloadingModel === model.model_name}
+                        formatSize={formatSize}
+                      />
+                    ))}
+                </div>
+              </div>
+            )}
+
             {/* Whisper Models */}
             <div>
               <h3 className="text-sm font-semibold mb-3 text-muted-foreground">
@@ -268,6 +303,7 @@ interface ModelItemProps {
     downloading?: boolean;  // From server - true if download in progress
     size_mb?: number;
     loaded: boolean;
+    is_local?: boolean;     // True if local-only model (no HF download)
   };
   onDownload: () => void;
   onDelete: () => void;
@@ -278,7 +314,8 @@ interface ModelItemProps {
 function ModelItem({ model, onDownload, onDelete, isDownloading, formatSize }: ModelItemProps) {
   // Use server's downloading state OR local state (for immediate feedback before server updates)
   const showDownloading = model.downloading || isDownloading;
-  
+  const isLocal = model.is_local;
+
   return (
     <div className="flex items-center justify-between p-3 border rounded-lg">
       <div className="flex-1">
@@ -289,8 +326,13 @@ function ModelItem({ model, onDownload, onDelete, isDownloading, formatSize }: M
               Loaded
             </Badge>
           )}
+          {isLocal && !model.loaded && model.downloaded && (
+            <Badge variant="outline" className="text-xs">
+              Local
+            </Badge>
+          )}
           {/* Only show Downloaded if actually downloaded AND not downloading */}
-          {model.downloaded && !model.loaded && !showDownloading && (
+          {model.downloaded && !model.loaded && !showDownloading && !isLocal && (
             <Badge variant="secondary" className="text-xs">
               Downloaded
             </Badge>
@@ -308,20 +350,44 @@ function ModelItem({ model, onDownload, onDelete, isDownloading, formatSize }: M
             <div className="flex items-center gap-1 text-sm text-muted-foreground">
               <span>Ready</span>
             </div>
-            <Button
-              size="sm"
-              onClick={onDelete}
-              variant="outline"
-              disabled={model.loaded}
-              title={model.loaded ? 'Unload model before deleting' : 'Delete model'}
-            >
-              <Trash2 className="h-4 w-4" />
-            </Button>
+            {isLocal ? (
+              /* Local models: show Unload button when loaded */
+              model.loaded ? (
+                <Button
+                  size="sm"
+                  onClick={onDelete}
+                  variant="outline"
+                  title="Unload model from GPU"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              ) : (
+                <Button
+                  size="sm"
+                  onClick={onDownload}
+                  variant="outline"
+                  title="Load model into GPU"
+                >
+                  <Download className="h-4 w-4 mr-2" />
+                  Load
+                </Button>
+              )
+            ) : (
+              <Button
+                size="sm"
+                onClick={onDelete}
+                variant="outline"
+                disabled={model.loaded}
+                title={model.loaded ? 'Unload model before deleting' : 'Delete model'}
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            )}
           </div>
         ) : showDownloading ? (
           <Button size="sm" variant="outline" disabled>
             <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-            Downloading...
+            {isLocal ? 'Loading...' : 'Downloading...'}
           </Button>
         ) : (
           <Button size="sm" onClick={onDownload} variant="outline">

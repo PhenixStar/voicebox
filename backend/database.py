@@ -133,13 +133,31 @@ def init_db():
         connect_args={"check_same_thread": False},
     )
 
+    from sqlalchemy import event, text as sa_text
+
+    @event.listens_for(engine, "connect")
+    def _set_sqlite_pragma(dbapi_connection, connection_record):
+        cursor = dbapi_connection.cursor()
+        cursor.execute("PRAGMA foreign_keys=ON")
+        cursor.close()
+
     SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
     
     # Run migrations before creating tables
     _run_migrations(engine)
     
     Base.metadata.create_all(bind=engine)
-    
+
+    # Create indexes on FK columns for query performance
+    with engine.connect() as conn:
+        conn.execute(sa_text("CREATE INDEX IF NOT EXISTS idx_profile_samples_profile_id ON profile_samples(profile_id)"))
+        conn.execute(sa_text("CREATE INDEX IF NOT EXISTS idx_generations_profile_id ON generations(profile_id)"))
+        conn.execute(sa_text("CREATE INDEX IF NOT EXISTS idx_story_items_story_id ON story_items(story_id)"))
+        conn.execute(sa_text("CREATE INDEX IF NOT EXISTS idx_story_items_generation_id ON story_items(generation_id)"))
+        conn.execute(sa_text("CREATE INDEX IF NOT EXISTS idx_channel_device_mappings_channel_id ON channel_device_mappings(channel_id)"))
+        conn.execute(sa_text("CREATE INDEX IF NOT EXISTS idx_profile_channel_mappings_channel_id ON profile_channel_mappings(channel_id)"))
+        conn.commit()
+
     # Create default channel if it doesn't exist
     db = SessionLocal()
     try:

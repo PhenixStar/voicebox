@@ -1,176 +1,144 @@
 <p align="center">
-  <img src=".github/assets/icon-dark.webp" alt="Voicebox" width="120" height="120" />
+  <img src=".github/assets/icon-dark.webp" alt="The Voice" width="120" height="120" />
 </p>
 
-<h1 align="center">Voicebox</h1>
+<h1 align="center">The Voice</h1>
 
 <p align="center">
-  <strong>The open-source voice synthesis studio.</strong><br/>
-  Clone voices. Generate speech. Build voice-powered apps.<br/>
-  All running locally on your machine.
-</p>
-
-<p align="center">
-  <a href="https://github.com/jamiepine/voicebox/releases">
-    <img src="https://img.shields.io/github/downloads/jamiepine/voicebox/total?style=flat&color=blue" alt="Downloads" />
-  </a>
-  <a href="https://github.com/jamiepine/voicebox/releases/latest">
-    <img src="https://img.shields.io/github/v/release/jamiepine/voicebox?style=flat" alt="Release" />
-  </a>
-  <a href="https://github.com/jamiepine/voicebox/stargazers">
-    <img src="https://img.shields.io/github/stars/jamiepine/voicebox?style=flat" alt="Stars" />
-  </a>
-  <a href="https://github.com/jamiepine/voicebox/blob/main/LICENSE">
-    <img src="https://img.shields.io/github/license/jamiepine/voicebox?style=flat" alt="License" />
-  </a>
+  <strong>Modded voice synthesis studio powered by multi-model TTS.</strong><br/>
+  Clone voices. Generate speech. Multiple model backends.<br/>
+  Running locally or via Docker with NVIDIA GPU acceleration.
 </p>
 
 <p align="center">
-  <a href="https://voicebox.sh">voicebox.sh</a> •
-  <a href="#download">Download</a> •
-  <a href="#features">Features</a> •
-  <a href="#api">API</a> •
-  <a href="#roadmap">Roadmap</a>
+  <a href="https://voice.nulled.ai">Live Demo</a> &bull;
+  <a href="#features">Features</a> &bull;
+  <a href="#docker-deployment">Docker</a> &bull;
+  <a href="#api">API</a>
 </p>
 
 <br/>
 
-<p align="center">
-  <a href="https://voicebox.sh">
-    <img src="landing/public/assets/app-screenshot-1.webp" alt="Voicebox App Screenshot" width="800" />
-  </a>
-</p>
+## What is The Voice?
 
-<p align="center">
-  <em>Click the image above to watch the demo video on <a href="https://voicebox.sh">voicebox.sh</a></em>
-</p>
+A modded fork of [Voicebox](https://github.com/jamiepine/voicebox) with extended multi-model TTS support, Docker/NVIDIA GPU deployment, and a redesigned dark theme.
 
-<br/>
+**Key differences from upstream:**
 
-<p align="center">
-  <img src="landing/public/assets/app-screenshot-2.webp" alt="Voicebox Screenshot 2" width="800" />
-</p>
-
-<p align="center">
-  <img src="landing/public/assets/app-screenshot-3.webp" alt="Voicebox Screenshot 3" width="800" />
-</p>
-
-<br/>
-
-## What is Voicebox?
-
-Voicebox is a **local-first voice cloning studio** with DAW-like features for professional voice synthesis. Think of it as a **local, free and open-source alternative to ElevenLabs** — download models, clone voices, and generate speech entirely on your machine.
-
-Unlike cloud services that lock your voice data behind subscriptions, Voicebox gives you:
-
-- **Complete privacy** — models and voice data stay on your machine
-- **Professional tools** — multi-track timeline editor, audio trimming, conversation mixing
-- **Model flexibility** — currently powered by Qwen3-TTS, with support for XTTS, Bark, and other models coming soon
-- **API-first** — use the desktop app or integrate voice synthesis into your own projects
-- **Native performance** — built with Tauri (Rust), not Electron
-- **Super fast on Mac** — MLX backend with native Metal acceleration for 4-5x faster inference on Apple Silicon
-
-Download a voice model, clone any voice from a few seconds of audio, and compose multi-voice projects with studio-grade editing tools. No Python install required, no cloud dependency, no limits.
-
----
-
-## Download
-
-Voicebox is available now for macOS and Windows.
-
-| Platform | Download |
-|----------|----------|
-| macOS (Apple Silicon) | [Voicebox_aarch64.app.tar.gz](https://github.com/jamiepine/voicebox/releases/latest/download/Voicebox_aarch64.app.tar.gz) |
-| macOS (Intel) | [Voicebox_x64.app.tar.gz](https://github.com/jamiepine/voicebox/releases/latest/download/Voicebox_x64.app.tar.gz) |
-| Windows (MSI) | [Latest Windows MSI](https://github.com/jamiepine/voicebox/releases/latest) |
-| Windows (Setup) | [Latest Windows Setup](https://github.com/jamiepine/voicebox/releases/latest) |
-
-> **Linux builds coming soon** — Currently blocked by GitHub runner disk space limitations.
+- **Multi-model support** — Kokoro 82M, Qwen TTS (0.6B/1.7B), KugelAudio 7B
+- **Docker + NVIDIA CUDA** — One-command GPU-accelerated deployment
+- **Cloudflare Tunnel** — Expose securely to the internet
+- **Red + black dark theme** — Redesigned UI with "The Voice" branding
+- **Web-first deployment** — nginx SPA routing with FastAPI backend proxy
+- **faster-whisper STT** — Speech-to-text transcription support
 
 ---
 
 ## Features
 
-### Voice Cloning with Qwen3-TTS
+### Multi-Model TTS Engine
 
-Powered by Alibaba's **Qwen3-TTS** — a breakthrough model that achieves near-perfect voice cloning from just a few seconds of audio.
+| Model | Size | Speed | Quality | Use Case |
+|-------|------|-------|---------|----------|
+| **Kokoro 82M** | 82M params | ~2s | Good | Fast drafts, testing |
+| **Qwen TTS 1.7B** | 1.7B params | ~30s | Excellent | Voice cloning, production |
+| **KugelAudio 7B** | 7B params | ~60s | Best | High-fidelity output |
 
-- **Instant cloning** — Upload a sample, get a voice profile
-- **High fidelity** — Natural prosody, emotion, and cadence
-- **Multi-language** — English, Chinese, and more coming
-- **Lightning fast on Mac** — MLX backend leverages Apple Silicon's Neural Engine for super fast generation
+### Voice Cloning
 
-### Voice Profile Management
-
-- **Create profiles** from audio files or record directly in-app
-- **Import/Export** profiles to share or backup
-- **Multi-sample support** — combine multiple samples for higher quality cloning
-- **Organize** with descriptions and language tags
-
-### Speech Generation
-
-- **Text-to-speech** with any cloned voice
-- **Batch generation** for long-form content
-- **Smart caching** — regenerate instantly with voice prompt caching
+- Upload a few seconds of audio to create a voice profile
+- Multi-sample support for higher quality cloning
+- Import/export profiles for sharing and backup
 
 ### Stories Editor
 
-Create multi-voice narratives, podcasts, and conversations with a timeline-based editor.
+- Multi-track timeline for composing multi-voice narratives
+- Inline audio editing with trim and split
+- Auto-playback with synchronized playhead
 
-- **Multi-track composition** — arrange multiple voice tracks in a single project
-- **Inline audio editing** — trim and split clips directly in the timeline
-- **Auto-playback** — preview stories with synchronized playhead
-- **Voice mixing** — build conversations with multiple participants
+### Speech-to-Text
 
-### Recording & Transcription
+- Powered by faster-whisper (CTranslate2)
+- Automatic transcription of uploaded audio
+- Multiple language support
 
-- **In-app recording** with waveform visualization
-- **System audio capture** — record desktop audio on macOS and Windows
-- **Automatic transcription** powered by Whisper
-- **Export recordings** in multiple formats
+---
 
-### Generation History
+## Docker Deployment
 
-- **Full history** of all generated audio
-- **Search & filter** by voice, text, or date
-- **Re-generate** any past generation with one click
+### Prerequisites
 
-### Flexible Deployment
+- Docker with NVIDIA Container Toolkit
+- NVIDIA GPU with CUDA support
+- Cloudflare Tunnel token (optional, for public access)
 
-- **Local mode** — Everything runs on your machine
-- **Remote mode** — Connect to a GPU server on your network
-- **One-click server** — Turn any machine into a Voicebox server
+### Quick Start
+
+```bash
+# Clone the repo
+git clone https://github.com/PhenixStar/voicebox.git
+cd voicebox
+
+# Copy environment template
+cp .env.example .env
+# Edit .env with your CF_TUNNEL_TOKEN (optional)
+
+# Build and run
+docker compose up -d --build
+
+# Access at http://localhost:8080
+```
+
+### Docker Architecture
+
+```
+nginx (:80)
+  ├── Static frontend (React SPA)
+  ├── /api/* → FastAPI backend (:8000)
+  └── SPA fallback → index.html
+
+FastAPI (:8000)
+  ├── Model management (download, load, delete)
+  ├── TTS generation (Kokoro, Qwen, KugelAudio)
+  ├── Voice profiles (CRUD, samples)
+  ├── Transcription (faster-whisper)
+  └── SQLite database (/data/)
+```
+
+### Volumes
+
+| Volume | Container Path | Purpose |
+|--------|---------------|---------|
+| `voicebox-models` | `/home/models` | Downloaded TTS/STT models |
+| `voicebox-data` | `/data` | SQLite database, generated audio |
 
 ---
 
 ## API
 
-Voicebox exposes a full REST API, so you can integrate voice synthesis into your own apps.
+The backend exposes a REST API at port 8000 (proxied through nginx on port 80).
 
 ```bash
+# Health check
+curl http://localhost:8080/health
+
+# List models
+curl http://localhost:8080/models/status
+
 # Generate speech
-curl -X POST http://localhost:8000/generate \
+curl -X POST http://localhost:8080/generate \
   -H "Content-Type: application/json" \
-  -d '{"text": "Hello world", "profile_id": "abc123", "language": "en"}'
+  -d '{"text": "Hello world", "voice": "af_heart", "model_size": "82M"}'
 
 # List voice profiles
-curl http://localhost:8000/profiles
+curl http://localhost:8080/profiles
 
-# Create a profile
-curl -X POST http://localhost:8000/profiles \
-  -H "Content-Type: application/json" \
-  -d '{"name": "My Voice", "language": "en"}'
+# Transcribe audio
+curl -X POST http://localhost:8080/transcribe \
+  -F "file=@audio.wav"
 ```
 
-**Use cases:**
-
-- Game dialogue systems
-- Podcast/video production pipelines
-- Accessibility tools
-- Voice assistants
-- Content creation automation
-
-Full API documentation available at `http://localhost:8000/docs` when running.
+Full API docs available at `http://localhost:8080/docs` when running.
 
 ---
 
@@ -178,129 +146,57 @@ Full API documentation available at `http://localhost:8000/docs` when running.
 
 | Layer | Technology |
 |-------|------------|
-| Desktop App | Tauri (Rust) |
-| Frontend | React, TypeScript, Tailwind CSS |
+| Frontend | React, TypeScript, Tailwind CSS v4, TanStack Router |
 | State | Zustand, React Query |
 | Backend | FastAPI (Python) |
-| Voice Model | Qwen3-TTS (PyTorch or MLX) |
-| Transcription | Whisper (PyTorch or MLX) |
-| Inference Engine | MLX (Apple Silicon) / PyTorch (Windows/Linux/Intel) |
+| TTS Models | Kokoro, Qwen TTS, KugelAudio (PyTorch + CUDA) |
+| STT | faster-whisper (CTranslate2) |
 | Database | SQLite |
-| Audio | WaveSurfer.js, librosa |
-
-**Why this stack?**
-
-- **Tauri over Electron** — 10x smaller bundle, native performance, lower memory
-- **FastAPI** — Async Python with automatic OpenAPI schema generation
-- **Type-safe end-to-end** — Generated TypeScript client from OpenAPI spec
-
----
-
-## Roadmap
-
-Voicebox is the beginning of something bigger. Here's what's coming:
-
-### Coming Soon
-
-| Feature | Description |
-|---------|-------------|
-| **Real-time Synthesis** | Stream audio as it generates, word by word |
-| **Conversation Mode** | Multi-speaker dialogues with automatic turn-taking |
-| **Voice Effects** | Pitch shift, reverb, M3GAN-style effects |
-| **Timeline Editor** | Audio studio with word-level precision editing |
-| **More Models** | XTTS, Bark, and other open-source voice models |
-
-### Future Vision
-
-- **Voice Design** — Create new voices from text descriptions
-- **Project System** — Save and load complex multi-voice sessions
-- **Plugin Architecture** — Extend with custom models and effects
-- **Mobile Companion** — Control Voicebox from your phone
-
-Voicebox aims to be the **one-stop shop for everything voice** — cloning, synthesis, editing, effects, and beyond.
+| Deployment | Docker, nginx, supervisord, Cloudflare Tunnel |
+| GPU | NVIDIA CUDA 12.8 runtime |
 
 ---
 
 ## Development
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for detailed setup and contribution guidelines.
-
-**Using the Makefile (recommended):** Run `make help` to see all available commands for setup, development, building, and testing.
-
-### Quick Start
-
-**With Makefile (Unix/macOS/Linux):**
+### Local Development (without Docker)
 
 ```bash
-# Clone the repo
-git clone https://github.com/jamiepine/voicebox.git
-cd voicebox
-
-# Setup everything
-make setup
-
-# Start development
-make dev
-```
-
-**Manual setup (all platforms):**
-
-```bash
-# Clone the repo
-git clone https://github.com/jamiepine/voicebox.git
-cd voicebox
-
-# Install dependencies
+# Install frontend dependencies
 bun install
 
-# Install Python dependencies
+# Install backend dependencies
 cd backend && pip install -r requirements.txt && cd ..
 
-# Start development
-bun run dev
+# Start backend
+cd backend && uvicorn main:app --host 0.0.0.0 --port 8000
+
+# Start frontend (separate terminal)
+cd web && bun run dev
 ```
-
-**Prerequisites:** [Bun](https://bun.sh), [Rust](https://rustup.rs), [Python 3.11+](https://python.org). [XCode on macOS](https://developer.apple.com/xcode/).
-
-**Performance:** 
-- **Apple Silicon (M1/M2/M3)**: Uses MLX backend with native Metal acceleration for 4-5x faster inference
-- **Windows/Linux/Intel Mac**: Uses PyTorch backend (CUDA GPU recommended, CPU supported but slower)
 
 ### Project Structure
 
 ```
 voicebox/
-├── app/              # Shared React frontend
+├── app/              # Shared React frontend components
+├── web/              # Web deployment (Vite)
 ├── tauri/            # Desktop app (Tauri + Rust)
-├── web/              # Web deployment
 ├── backend/          # Python FastAPI server
-├── landing/          # Marketing website
-└── scripts/          # Build & release scripts
+│   ├── backends/     # Model backends (Kokoro, Qwen, KugelAudio)
+│   ├── routers/      # API route modules
+│   └── main.py       # App entry point
+└── landing/          # Marketing website (upstream)
 ```
 
 ---
 
-## Contributing
+## Credits
 
-Contributions welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
-
-1. Fork the repo
-2. Create a feature branch
-3. Make your changes
-4. Submit a PR
-
-## Security
-
-Found a security vulnerability? Please report it responsibly. See [SECURITY.md](SECURITY.md) for details.
+Based on [Voicebox](https://github.com/jamiepine/voicebox) by [Jamie Pine](https://github.com/jamiepine).
 
 ---
 
 ## License
 
 MIT License — see [LICENSE](LICENSE) for details.
-
----
-
-<p align="center">
-  <a href="https://voicebox.sh">voicebox.sh</a>
-</p>

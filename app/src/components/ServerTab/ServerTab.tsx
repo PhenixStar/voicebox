@@ -1,28 +1,108 @@
+import { Settings } from 'lucide-react';
+import { useQuery } from '@tanstack/react-query';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { ConnectionForm } from '@/components/ServerSettings/ConnectionForm';
 import { ServerStatus } from '@/components/ServerSettings/ServerStatus';
 import { UpdateStatus } from '@/components/ServerSettings/UpdateStatus';
+import { apiClient } from '@/lib/api/client';
 import { usePlatform } from '@/platform/PlatformContext';
+import { useUIStore } from '@/stores/uiStore';
+import { usePlayerStore } from '@/stores/playerStore';
+import { cn } from '@/lib/utils/cn';
 
 export function ServerTab() {
   const platform = usePlatform();
+  const theme = useUIStore((s) => s.theme);
+  const setTheme = useUIStore((s) => s.setTheme);
+  const audioUrl = usePlayerStore((s) => s.audioUrl);
+  const isPlayerVisible = !!audioUrl;
+
+  // Health data doubles as server info (no dedicated getServerInfo endpoint)
+  const { data: health } = useQuery({
+    queryKey: ['serverHealth'],
+    queryFn: () => apiClient.getHealth(),
+    retry: false,
+  });
+
   return (
-    <div className="space-y-4 overflow-y-auto flex flex-col">
-      <div className="grid gap-4 md:grid-cols-2">
-        <ConnectionForm />
-        <ServerStatus />
+    <div
+      className={cn(
+        'h-full flex flex-col py-4 overflow-y-auto space-y-6',
+        isPlayerVisible && 'pb-32',
+      )}
+    >
+      {/* Header */}
+      <div className="flex items-center gap-3 shrink-0">
+        <Settings className="h-5 w-5 text-muted-foreground" />
+        <h1 className="text-2xl font-bold">Settings</h1>
       </div>
+
+      {/* Server Connection */}
+      <ConnectionForm />
+
+      {/* Server Status */}
+      <ServerStatus />
+
+      {/* Appearance */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base">Appearance</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium">Theme</p>
+              <p className="text-xs text-muted-foreground">Choose dark or light mode</p>
+            </div>
+            <Select value={theme} onValueChange={(v) => setTheme(v as 'dark' | 'light')}>
+              <SelectTrigger className="w-32">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="dark">Dark</SelectItem>
+                <SelectItem value="light">Light</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Update (Tauri only) */}
       {platform.metadata.isTauri && <UpdateStatus />}
-      <div className="py-8 text-center text-sm text-muted-foreground">
-        Created by{' '}
-        <a
-          href="https://github.com/jamiepine"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="text-accent hover:underline"
-        >
-          Jamie Pine
-        </a>
-      </div>
+
+      {/* About */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base">About</CardTitle>
+        </CardHeader>
+        <CardContent className="text-sm text-muted-foreground space-y-1">
+          {health && (
+            <>
+              <p>GPU: {health.gpu_available ? 'Available' : 'Not available'}</p>
+              {health.vram_used_mb != null && <p>VRAM used: {health.vram_used_mb.toFixed(0)} MB</p>}
+              {health.model_size && <p>Active model size: {health.model_size}</p>}
+            </>
+          )}
+          <p className="pt-2">
+            Created by{' '}
+            <a
+              href="https://github.com/PhenixStar"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-accent hover:underline"
+            >
+              phenix
+            </a>
+          </p>
+        </CardContent>
+      </Card>
     </div>
   );
 }

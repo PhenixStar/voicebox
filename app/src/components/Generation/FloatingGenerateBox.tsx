@@ -1,4 +1,5 @@
 import { useMatchRoute } from '@tanstack/react-router';
+import { useQuery } from '@tanstack/react-query';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Loader2, SlidersHorizontal, Sparkles } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
@@ -14,7 +15,12 @@ import {
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/components/ui/use-toast';
 import { LANGUAGE_OPTIONS } from '@/lib/constants/languages';
-import { useGenerationForm } from '@/lib/hooks/useGenerationForm';
+import { apiClient } from '@/lib/api/client';
+import {
+  useGenerationForm,
+  isBuiltinVoiceModel,
+  BUILTIN_VOICE_MODELS,
+} from '@/lib/hooks/useGenerationForm';
 import { useProfile, useProfiles } from '@/lib/hooks/useProfiles';
 import { useAddStoryItem, useStory } from '@/lib/hooks/useStories';
 import { cn } from '@/lib/utils/cn';
@@ -74,6 +80,33 @@ export function FloatingGenerateBox({
       }
     },
   });
+
+  const watchedModelName = form.watch('modelName');
+  const useBuiltinVoice = isBuiltinVoiceModel(watchedModelName);
+
+  // Fetch TTS models for the compact selector
+  const { data: modelStatus } = useQuery({
+    queryKey: ['modelStatus'],
+    queryFn: () => apiClient.getModelStatus(),
+    refetchInterval: 10000,
+  });
+  const ttsModels = modelStatus?.models.filter(
+    (m) =>
+      m.model_name.startsWith('qwen-tts') ||
+      BUILTIN_VOICE_MODELS.includes(m.model_name as (typeof BUILTIN_VOICE_MODELS)[number]),
+  ) ?? [];
+
+  // Fetch voices for built-in voice models
+  const { data: availableVoices } = useQuery({
+    queryKey: ['voices', watchedModelName],
+    queryFn: () => apiClient.getModelVoices(watchedModelName!),
+    enabled: useBuiltinVoice && !!watchedModelName,
+  });
+
+  // Generate button enabled: built-in voice needs voice selected, Qwen needs profile
+  const canGenerate = useBuiltinVoice
+    ? !!form.watch('voiceName')
+    : !!selectedProfileId;
 
   // Click away handler to collapse the box
   useEffect(() => {
@@ -227,16 +260,18 @@ export function FloatingGenerateBox({
                               placeholder={
                                 isStoriesRoute && currentStory
                                   ? `Generate speech for "${currentStory.name}"...`
-                                  : selectedProfile
-                                    ? `Generate speech using ${selectedProfile.name}...`
-                                    : 'Select a voice profile above...'
+                                  : useBuiltinVoice
+                                    ? 'Enter text to generate speech...'
+                                    : selectedProfile
+                                      ? `Generate speech using ${selectedProfile.name}...`
+                                      : 'Select a voice profile above...'
                               }
                               className="resize-none bg-transparent border-none focus-visible:ring-0 focus-visible:ring-offset-0 focus:outline-none focus:ring-0 outline-none ring-0 rounded-2xl text-sm placeholder:text-muted-foreground/60 w-full"
                               style={{
                                 minHeight: isExpanded ? '100px' : '32px',
                                 maxHeight: '300px',
                               }}
-                              disabled={!selectedProfileId}
+                              disabled={!canGenerate}
                               onClick={() => setIsExpanded(true)}
                               onFocus={() => setIsExpanded(true)}
                             />
@@ -280,7 +315,7 @@ export function FloatingGenerateBox({
                                 minHeight: isExpanded ? '100px' : '32px',
                                 maxHeight: '300px',
                               }}
-                              disabled={!selectedProfileId}
+                              disabled={!canGenerate}
                               onClick={() => setIsExpanded(true)}
                               onFocus={() => setIsExpanded(true)}
                             />
@@ -297,7 +332,7 @@ export function FloatingGenerateBox({
                 <div className="group relative">
                   <Button
                     type="submit"
-                    disabled={isPending || !selectedProfileId}
+                    disabled={isPending || !canGenerate}
                     className="h-10 w-10 rounded-full bg-accent hover:bg-accent/90 hover:scale-105 text-accent-foreground shadow-lg hover:shadow-accent/50 transition-all duration-200"
                     size="icon"
                   >
@@ -310,8 +345,8 @@ export function FloatingGenerateBox({
                   <span className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 whitespace-nowrap rounded-md bg-popover px-3 py-1.5 text-xs text-popover-foreground border border-border opacity-0 transition-opacity group-hover:opacity-100 z-[9999]">
                     {isPending
                       ? 'Generating...'
-                      : !selectedProfileId
-                        ? 'Select a voice profile first'
+                      : !canGenerate
+                        ? useBuiltinVoice ? 'Select a voice first' : 'Select a voice profile first'
                         : 'Generate speech'}
                   </span>
                 </div>
@@ -358,7 +393,7 @@ export function FloatingGenerateBox({
                 className=" mt-3"
               >
                 <div className="flex items-center gap-2">
-                  {showVoiceSelector && (
+                  {showVoiceSelector && !useBuiltinVoice && (
                     <div className="flex-1">
                       <Select
                         value={selectedProfileId || ''}
@@ -404,28 +439,71 @@ export function FloatingGenerateBox({
 
                   <FormField
                     control={form.control}
-                    name="modelSize"
+                    name="modelName"
                     render={({ field }) => (
                       <FormItem className="flex-1 space-y-0">
-                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <Select
+                          onValueChange={(val) => {
+                            field.onChange(val);
+                            // Sync modelSize for Qwen models
+                            if (val === 'qwen-tts-1.7B') form.setValue('modelSize', '1.7B');
+                            else if (val === 'qwen-tts-0.6B') form.setValue('modelSize', '0.6B');
+                            // Reset voice when model changes
+                            form.setValue('voiceName', undefined);
+                          }}
+                          value={field.value}
+                        >
                           <FormControl>
                             <SelectTrigger className="h-8 text-xs bg-card border-border rounded-full hover:bg-background/50 transition-all">
-                              <SelectValue />
+                              <SelectValue placeholder="Select model" />
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
-                            <SelectItem value="1.7B" className="text-xs text-muted-foreground">
-                              Qwen3-TTS 1.7B
-                            </SelectItem>
-                            <SelectItem value="0.6B" className="text-xs text-muted-foreground">
-                              Qwen3-TTS 0.6B
-                            </SelectItem>
+                            {ttsModels.map((m) => (
+                              <SelectItem
+                                key={m.model_name}
+                                value={m.model_name}
+                                disabled={!m.downloaded}
+                                className="text-xs text-muted-foreground"
+                              >
+                                {m.display_name}
+                                {!m.downloaded && ' (not downloaded)'}
+                                {m.loaded && ' ✓'}
+                              </SelectItem>
+                            ))}
                           </SelectContent>
                         </Select>
                         <FormMessage className="text-xs" />
                       </FormItem>
                     )}
                   />
+
+                  {/* Voice selector for built-in voice models */}
+                  {useBuiltinVoice && (
+                    <FormField
+                      control={form.control}
+                      name="voiceName"
+                      render={({ field }) => (
+                        <FormItem className="flex-1 space-y-0">
+                          <Select onValueChange={field.onChange} value={field.value}>
+                            <FormControl>
+                              <SelectTrigger className="h-8 text-xs bg-card border-border rounded-full hover:bg-background/50 transition-all">
+                                <SelectValue placeholder="Voice..." />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              {(availableVoices ?? []).map((voice) => (
+                                <SelectItem key={voice} value={voice} className="text-xs">
+                                  {voice}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <FormMessage className="text-xs" />
+                        </FormItem>
+                      )}
+                    />
+                  )}
                 </div>
               </motion.div>
             </AnimatePresence>

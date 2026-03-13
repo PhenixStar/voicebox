@@ -141,105 +141,129 @@ async def import_profile_from_zip(file_bytes: bytes, db: Session) -> VoiceProfil
     
     try:
         with zipfile.ZipFile(zip_buffer, 'r') as zip_file:
-            # Validate ZIP structure
+            # Security: check for zip bomb and path traversal
+            MAX_EXTRACTED_SIZE = 500 * 1024 * 1024  # 500MB
+            MAX_FILE_COUNT = 1000
+
             namelist = zip_file.namelist()
-            
+
+            if len(namelist) > MAX_FILE_COUNT:
+                raise ValueError(f"ZIP contains too many files ({len(namelist)} > {MAX_FILE_COUNT})")
+
+            # Check for path traversal attacks
+            for entry in namelist:
+                if entry.startswith('/') or '..' in entry:
+                    raise ValueError(f"ZIP contains suspicious path: {entry}")
+
+            # Check cumulative uncompressed size
+            total_uncompressed = sum(info.file_size for info in zip_file.infolist())
+            if total_uncompressed > MAX_EXTRACTED_SIZE:
+                raise ValueError(f"ZIP uncompressed size too large ({total_uncompressed} bytes > {MAX_EXTRACTED_SIZE})")
+
+            # Validate ZIP structure
             if "manifest.json" not in namelist:
                 raise ValueError("ZIP archive missing manifest.json")
-            
+
             if "samples.json" not in namelist:
                 raise ValueError("ZIP archive missing samples.json")
-            
+
             # Read manifest
             manifest_data = json.loads(zip_file.read("manifest.json"))
-            
+
             if "version" not in manifest_data:
                 raise ValueError("Invalid manifest.json: missing version")
-            
+
             if "profile" not in manifest_data:
                 raise ValueError("Invalid manifest.json: missing profile")
-            
+
             profile_data = manifest_data["profile"]
-            
+
             # Read samples mapping
             samples_data = json.loads(zip_file.read("samples.json"))
-            
+
             if not isinstance(samples_data, dict):
                 raise ValueError("Invalid samples.json: must be a dictionary")
-            
+
             # Get unique profile name
             original_name = profile_data.get("name", "Imported Profile")
             unique_name = _get_unique_profile_name(original_name, db)
-            
-            # Create profile
-            profile_create = VoiceProfileCreate(
-                name=unique_name,
-                description=profile_data.get("description"),
-                language=profile_data.get("language", "en"),
-            )
-            
-            profile = await create_profile(profile_create, db)
 
-            # Extract and add samples
-            profile_dir = _get_profiles_dir() / profile.id
-            profile_dir.mkdir(parents=True, exist_ok=True)
+            # Use try/except for atomic import with rollback
+            try:
+                # Create profile
+                profile_create = VoiceProfileCreate(
+                    name=unique_name,
+                    description=profile_data.get("description"),
+                    language=profile_data.get("language", "en"),
+                )
 
-            # Handle avatar if present
-            avatar_files = [f for f in namelist if f.startswith("avatar.")]
-            if avatar_files:
-                try:
-                    avatar_file = avatar_files[0]
+                profile = await create_profile(profile_create, db)
+
+                # Extract and add samples
+                profile_dir = _get_profiles_dir() / profile.id
+                profile_dir.mkdir(parents=True, exist_ok=True)
+
+                # Handle avatar if present
+                avatar_files = [f for f in namelist if f.startswith("avatar.")]
+                if avatar_files:
+                    try:
+                        avatar_file = avatar_files[0]
+                        # Extract to temporary file
+                        import tempfile
+                        with tempfile.NamedTemporaryFile(suffix=Path(avatar_file).suffix, delete=False) as tmp:
+                            tmp.write(zip_file.read(avatar_file))
+                            tmp_path = tmp.name
+
+                        try:
+                            from .profiles import upload_avatar
+                            await upload_avatar(profile.id, tmp_path, db)
+                        finally:
+                            Path(tmp_path).unlink(missing_ok=True)
+                    except Exception as e:
+                        # Avatar import is optional - continue even if it fails
+                        pass
+
+                for filename, reference_text in samples_data.items():
+                    # Validate filename
+                    if not filename.endswith('.wav'):
+                        raise ValueError(f"Invalid sample filename: {filename} (must be .wav)")
+
+                    # Extract audio file to temp location
+                    zip_path = f"samples/{filename}"
+
+                    if zip_path not in namelist:
+                        raise ValueError(f"Sample file not found in ZIP: {zip_path}")
+
                     # Extract to temporary file
                     import tempfile
-                    with tempfile.NamedTemporaryFile(suffix=Path(avatar_file).suffix, delete=False) as tmp:
-                        tmp.write(zip_file.read(avatar_file))
+                    with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmp:
+                        tmp.write(zip_file.read(zip_path))
                         tmp_path = tmp.name
 
                     try:
-                        from .profiles import upload_avatar
-                        await upload_avatar(profile.id, tmp_path, db)
+                        # Add sample to profile
+                        await add_profile_sample(
+                            profile.id,
+                            tmp_path,
+                            reference_text,
+                            db,
+                        )
                     finally:
+                        # Clean up temp file
                         Path(tmp_path).unlink(missing_ok=True)
-                except Exception as e:
-                    # Avatar import is optional - continue even if it fails
-                    pass
 
-            for filename, reference_text in samples_data.items():
-                # Validate filename
-                if not filename.endswith('.wav'):
-                    raise ValueError(f"Invalid sample filename: {filename} (must be .wav)")
-                
-                # Extract audio file to temp location
-                zip_path = f"samples/{filename}"
-                
-                if zip_path not in namelist:
-                    raise ValueError(f"Sample file not found in ZIP: {zip_path}")
-                
-                # Extract to temporary file
-                import tempfile
-                with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmp:
-                    tmp.write(zip_file.read(zip_path))
-                    tmp_path = tmp.name
-                
-                try:
-                    # Add sample to profile
-                    await add_profile_sample(
-                        profile.id,
-                        tmp_path,
-                        reference_text,
-                        db,
-                    )
-                finally:
-                    # Clean up temp file
-                    Path(tmp_path).unlink(missing_ok=True)
-            
-            return profile
+                db.flush()  # Ensure all changes are visible
+                return profile
+            except Exception:
+                db.rollback()
+                raise
             
     except zipfile.BadZipFile:
         raise ValueError("Invalid ZIP file")
     except json.JSONDecodeError as e:
         raise ValueError(f"Invalid JSON in archive: {e}")
     except Exception as e:
+        db.rollback()
         if isinstance(e, ValueError):
             raise
         raise ValueError(f"Error importing profile: {str(e)}")
@@ -331,47 +355,64 @@ async def import_generation_from_zip(file_bytes: bytes, db: Session) -> dict:
     
     try:
         with zipfile.ZipFile(zip_buffer, 'r') as zip_file:
-            # Validate ZIP structure
+            # Security: check for zip bomb and path traversal
+            MAX_EXTRACTED_SIZE = 500 * 1024 * 1024  # 500MB
+            MAX_FILE_COUNT = 1000
+
             namelist = zip_file.namelist()
-            
+
+            if len(namelist) > MAX_FILE_COUNT:
+                raise ValueError(f"ZIP contains too many files ({len(namelist)} > {MAX_FILE_COUNT})")
+
+            # Check for path traversal attacks
+            for entry in namelist:
+                if entry.startswith('/') or '..' in entry:
+                    raise ValueError(f"ZIP contains suspicious path: {entry}")
+
+            # Check cumulative uncompressed size
+            total_uncompressed = sum(info.file_size for info in zip_file.infolist())
+            if total_uncompressed > MAX_EXTRACTED_SIZE:
+                raise ValueError(f"ZIP uncompressed size too large ({total_uncompressed} bytes > {MAX_EXTRACTED_SIZE})")
+
+            # Validate ZIP structure
             if "manifest.json" not in namelist:
                 raise ValueError("ZIP archive missing manifest.json")
-            
+
             # Read manifest
             manifest_data = json.loads(zip_file.read("manifest.json"))
-            
+
             if "version" not in manifest_data:
                 raise ValueError("Invalid manifest.json: missing version")
-            
+
             if "generation" not in manifest_data:
                 raise ValueError("Invalid manifest.json: missing generation data")
-            
+
             generation_data = manifest_data["generation"]
             profile_data = manifest_data.get("profile", {})
-            
+
             # Validate required fields
             required_fields = ["text", "language", "duration"]
             for field in required_fields:
                 if field not in generation_data:
                     raise ValueError(f"Invalid manifest.json: missing generation.{field}")
-            
+
             # Find audio file in archive
             audio_files = [f for f in namelist if f.startswith("audio/") and f.endswith(".wav")]
             if not audio_files:
                 raise ValueError("No audio file found in ZIP archive")
-            
+
             audio_file_path = audio_files[0]
-            
+
             # Check if we should match an existing profile or create metadata
             profile_id = None
             profile_name = profile_data.get("name", "Unknown Profile")
-            
+
             # Try to find matching profile by name
             if profile_name and profile_name != "Unknown Profile":
                 existing_profile = db.query(DBVoiceProfile).filter_by(name=profile_name).first()
                 if existing_profile:
                     profile_id = existing_profile.id
-            
+
             # If no matching profile, use a placeholder or the first available profile
             if not profile_id:
                 # Get any profile, or None if no profiles exist
@@ -381,24 +422,24 @@ async def import_generation_from_zip(file_bytes: bytes, db: Session) -> dict:
                     profile_name = any_profile.name
                 else:
                     raise ValueError("No voice profiles found. Please create a profile before importing generations.")
-            
+
             # Extract audio file to temporary location
             with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmp:
                 tmp.write(zip_file.read(audio_file_path))
                 tmp_path = tmp.name
-            
+
             try:
                 # Create generations directory
                 generations_dir = config.get_generations_dir()
                 generations_dir.mkdir(parents=True, exist_ok=True)
-                
+
                 # Generate new ID for this generation
                 new_generation_id = str(__import__('uuid').uuid4())
-                
+
                 # Copy audio to generations directory
                 audio_dest = generations_dir / f"{new_generation_id}.wav"
                 shutil.copy(tmp_path, audio_dest)
-                
+
                 # Create generation record
                 db_generation = DBGeneration(
                     id=new_generation_id,
@@ -411,11 +452,11 @@ async def import_generation_from_zip(file_bytes: bytes, db: Session) -> dict:
                     instruct=generation_data.get("instruct"),
                     created_at=datetime.utcnow(),
                 )
-                
+
                 db.add(db_generation)
                 db.commit()
                 db.refresh(db_generation)
-                
+
                 return {
                     "id": db_generation.id,
                     "profile_id": profile_id,
@@ -423,7 +464,7 @@ async def import_generation_from_zip(file_bytes: bytes, db: Session) -> dict:
                     "text": db_generation.text,
                     "message": f"Generation imported successfully (assigned to profile: {profile_name})"
                 }
-                
+
             finally:
                 # Clean up temp file
                 Path(tmp_path).unlink(missing_ok=True)
@@ -433,6 +474,7 @@ async def import_generation_from_zip(file_bytes: bytes, db: Session) -> dict:
     except json.JSONDecodeError as e:
         raise ValueError(f"Invalid JSON in archive: {e}")
     except Exception as e:
+        db.rollback()
         if isinstance(e, ValueError):
             raise
         raise ValueError(f"Error importing generation: {str(e)}")

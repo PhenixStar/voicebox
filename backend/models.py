@@ -38,24 +38,47 @@ class ProfileSampleUpdate(BaseModel):
     reference_text: str = Field(..., min_length=1, max_length=1000)
 
 
+class AudioQualityMetrics(BaseModel):
+    """Audio quality metrics returned after sample upload."""
+    duration_s: float = 0.0
+    rms_db: float = 0.0
+    peak_db: float = 0.0
+    snr_estimate_db: Optional[float] = None
+    silence_ratio: float = 0.0
+    quality: str = "good"  # good, fair, poor
+
+
 class ProfileSampleResponse(BaseModel):
     """Response model for profile sample."""
     id: str
     profile_id: str
     audio_path: str
     reference_text: str
+    quality_metrics: Optional[AudioQualityMetrics] = None
 
     class Config:
         from_attributes = True
 
 
 class GenerationRequest(BaseModel):
-    """Request model for voice generation."""
-    profile_id: str
+    """Request model for voice generation.
+
+    For Qwen TTS (voice-cloning): provide ``profile_id`` + ``model_size``.
+    For Kokoro / KugelAudio (built-in voices): provide ``model_name`` + ``voice_name``.
+    """
+    profile_id: Optional[str] = None
     text: str = Field(..., min_length=1, max_length=5000)
     language: str = Field(default="en", pattern="^(zh|en|ja|ko|de|fr|ru|pt|es|it)$")
     seed: Optional[int] = Field(None, ge=0)
-    model_size: Optional[str] = Field(default="1.7B", pattern="^(1\\.7B|0\\.6B)$")
+    model_size: Optional[str] = Field(default=None)
+    model_name: Optional[str] = Field(
+        default=None,
+        description="Explicit model selector: qwen-tts-1.7B, kokoro-82M, kugelaudio-7B, etc.",
+    )
+    voice_name: Optional[str] = Field(
+        default=None,
+        description="Built-in voice name for Kokoro/KugelAudio (e.g. af_heart, default).",
+    )
     instruct: Optional[str] = Field(None, max_length=500)
 
 
@@ -137,6 +160,9 @@ class ModelStatus(BaseModel):
     downloading: bool = False  # True if download is in progress
     size_mb: Optional[float] = None
     loaded: bool = False
+    backend_type: Optional[str] = None  # "qwen", "kokoro", "kugelaudio", "whisper"
+    model_type: Optional[str] = None    # "tts" or "stt"
+    is_local: bool = False              # True if model is local-only (no HF download)
 
 
 class ModelStatusListResponse(BaseModel):

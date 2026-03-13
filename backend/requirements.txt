@@ -13,6 +13,14 @@ transformers>=4.36.0
 accelerate>=0.26.0
 huggingface_hub>=0.20.0
 qwen-tts>=0.0.5
+faster-whisper>=1.1.0
+
+# Kokoro TTS (82M, lightweight)
+kokoro>=0.9.4
+misaki[en]
+
+# KugelAudio TTS (7B, AR+Diffusion) — not on PyPI, install from GitHub
+kugelaudio-open @ git+https://github.com/Kugelaudio/kugelaudio-open.git
 
 # Audio processing
 librosa>=0.10.0

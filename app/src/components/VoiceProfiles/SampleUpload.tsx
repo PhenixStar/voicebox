@@ -30,7 +30,7 @@ import { useTranscription } from '@/lib/hooks/useTranscription';
 import { usePlatform } from '@/platform/PlatformContext';
 import { AudioSampleRecording } from './AudioSampleRecording';
 import { AudioSampleSystem } from './AudioSampleSystem';
-import { AudioSampleUpload } from './AudioSampleUpload';
+import { AudioSampleUpload, type BatchResult } from './AudioSampleUpload';
 
 const sampleSchema = z.object({
   file: z.instanceof(File, { message: 'Please select an audio file' }),
@@ -140,6 +140,34 @@ export function SampleUpload({ profileId, open, onOpenChange }: SampleUploadProp
       });
     }
   }, [systemRecordingError, toast]);
+
+  async function handleBatchUpload(files: File[]): Promise<BatchResult[]> {
+    const results: BatchResult[] = [];
+    for (const f of files) {
+      try {
+        await addSample.mutateAsync({
+          profileId,
+          file: f,
+          referenceText: `(auto-uploaded: ${f.name})`,
+        });
+        results.push({ file: f, status: 'success' });
+      } catch (error) {
+        results.push({
+          file: f,
+          status: 'error',
+          message: error instanceof Error ? error.message : 'Upload failed',
+        });
+      }
+    }
+    const successCount = results.filter((r) => r.status === 'success').length;
+    if (successCount > 0) {
+      toast({
+        title: `${successCount} sample(s) added`,
+        description: `${successCount} of ${files.length} files uploaded successfully.`,
+      });
+    }
+    return results;
+  }
 
   async function handleTranscribe() {
     const file = form.getValues('file');
@@ -264,6 +292,7 @@ export function SampleUpload({ profileId, open, onOpenChange }: SampleUploadProp
                       isPlaying={isPlaying}
                       isTranscribing={transcribe.isPending}
                       fieldName={name}
+                      onBatchUpload={handleBatchUpload}
                     />
                   )}
                 />

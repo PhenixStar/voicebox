@@ -110,57 +110,71 @@ class STTBackend(Protocol):
         ...
 
 
-# Global backend instances
-_tts_backend: Optional[TTSBackend] = None
+# Global backend instances — keyed by backend_type
+_tts_backends: dict[str, TTSBackend] = {}
 _stt_backend: Optional[STTBackend] = None
 
 
-def get_tts_backend() -> TTSBackend:
+def get_tts_backend(backend_type_override: Optional[str] = None) -> TTSBackend:
     """
-    Get or create TTS backend instance based on platform.
-    
+    Get or create TTS backend instance.
+
+    Args:
+        backend_type_override: Explicit backend type ("qwen", "kokoro",
+            "kugelaudio"). If None, returns the default Qwen/MLX backend.
+
     Returns:
-        TTS backend instance (MLX or PyTorch)
+        TTS backend instance
     """
-    global _tts_backend
-    
-    if _tts_backend is None:
-        backend_type = get_backend_type()
-        
-        if backend_type == "mlx":
+    # Resolve the key
+    if backend_type_override is None:
+        platform = get_backend_type()
+        key = "mlx" if platform == "mlx" else "qwen"
+    else:
+        key = backend_type_override
+
+    if key not in _tts_backends:
+        if key == "mlx":
             from .mlx_backend import MLXTTSBackend
-            _tts_backend = MLXTTSBackend()
+            _tts_backends[key] = MLXTTSBackend()
+        elif key == "kokoro":
+            from .kokoro_backend import KokoroTTSBackend
+            _tts_backends[key] = KokoroTTSBackend()
+        elif key == "kugelaudio":
+            from .kugelaudio_backend import KugelAudioTTSBackend
+            _tts_backends[key] = KugelAudioTTSBackend()
         else:
+            # Default: PyTorch Qwen backend
             from .pytorch_backend import PyTorchTTSBackend
-            _tts_backend = PyTorchTTSBackend()
-    
-    return _tts_backend
+            _tts_backends[key] = PyTorchTTSBackend()
+
+    return _tts_backends[key]
 
 
 def get_stt_backend() -> STTBackend:
     """
     Get or create STT backend instance based on platform.
-    
+
     Returns:
         STT backend instance (MLX or PyTorch)
     """
     global _stt_backend
-    
+
     if _stt_backend is None:
         backend_type = get_backend_type()
-        
+
         if backend_type == "mlx":
             from .mlx_backend import MLXSTTBackend
             _stt_backend = MLXSTTBackend()
         else:
             from .pytorch_backend import PyTorchSTTBackend
             _stt_backend = PyTorchSTTBackend()
-    
+
     return _stt_backend
 
 
 def reset_backends():
-    """Reset backend instances (useful for testing)."""
-    global _tts_backend, _stt_backend
-    _tts_backend = None
+    """Reset all backend instances (useful for testing)."""
+    global _stt_backend
+    _tts_backends.clear()
     _stt_backend = None

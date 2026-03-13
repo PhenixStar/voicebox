@@ -191,6 +191,14 @@ class ApiClient {
     });
   }
 
+  // Voices (built-in voices for Kokoro/KugelAudio)
+  async getModelVoices(modelName: string): Promise<string[]> {
+    const result = await this.request<{ model_name: string; voices: string[] }>(
+      `/voices/${modelName}`,
+    );
+    return result.voices;
+  }
+
   // Generation
   async generateSpeech(data: GenerationRequest): Promise<GenerationResponse> {
     return this.request<GenerationResponse>('/generate', {

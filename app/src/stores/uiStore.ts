@@ -7,17 +7,12 @@ export interface ProfileFormDraft {
   language: string;
   referenceText: string;
   sampleMode: 'upload' | 'record' | 'system';
-  // Note: File objects can't be persisted, so we store metadata
   sampleFileName?: string;
   sampleFileType?: string;
   sampleFileData?: string; // Base64 encoded
 }
 
 interface UIStore {
-  // Sidebar
-  sidebarOpen: boolean;
-  setSidebarOpen: (open: boolean) => void;
-
   // Modals
   profileDialogOpen: boolean;
   setProfileDialogOpen: (open: boolean) => void;
@@ -41,9 +36,6 @@ interface UIStore {
 }
 
 export const useUIStore = create<UIStore>((set) => ({
-  sidebarOpen: true,
-  setSidebarOpen: (open) => set({ sidebarOpen: open }),
-
   profileDialogOpen: false,
   setProfileDialogOpen: (open) => set({ profileDialogOpen: open }),
   editingProfileId: null,
@@ -58,7 +50,7 @@ export const useUIStore = create<UIStore>((set) => ({
   profileFormDraft: null,
   setProfileFormDraft: (draft) => set({ profileFormDraft: draft }),
 
-  theme: 'light',
+  theme: 'dark',
   setTheme: (theme) => {
     set({ theme });
     document.documentElement.classList.toggle('dark', theme === 'dark');

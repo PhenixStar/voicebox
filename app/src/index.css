@@ -71,27 +71,27 @@
 }
 
 .dark {
-  --background: 0 0% 6%;
+  --background: 0 0% 5%;
   --foreground: 0 0% 95%;
-  --card: 0 0% 8%;
+  --card: 0 0% 9%;
   --card-foreground: 0 0% 95%;
-  --popover: 0 0% 8%;
+  --popover: 0 0% 10%;
   --popover-foreground: 0 0% 95%;
-  --primary: 0 0% 18%;
-  --primary-foreground: 0 0% 95%;
+  --primary: 0 0% 95%;
+  --primary-foreground: 0 0% 5%;
   --secondary: 0 0% 12%;
   --secondary-foreground: 0 0% 95%;
-  --muted: 0 0% 12%;
-  --muted-foreground: 0 0% 60%;
-  --accent: 43 50% 45%;
-  --accent-foreground: 0 0% 95%;
-  --destructive: 0 62.8% 50%;
+  --muted: 0 0% 13%;
+  --muted-foreground: 0 0% 50%;
+  --accent: 0 72% 51%;
+  --accent-foreground: 0 0% 100%;
+  --destructive: 0 65% 55%;
   --destructive-foreground: 0 0% 95%;
-  --border: 0 0% 12%;
+  --border: 0 0% 15%;
   --input: 0 0% 12%;
-  --ring: 0 0% 40%;
+  --ring: 0 72% 51%;
   --sidebar: 0 0% 4%;
-  --chart-1: 220 70% 50%;
+  --chart-1: 0 72% 51%;
   --chart-2: 160 60% 45%;
   --chart-3: 30 80% 55%;
   --chart-4: 280 65% 60%;
@@ -107,15 +107,26 @@
     @apply overflow-hidden;
   }
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground antialiased;
   }
-  /* Hide scrollbars globally */
+  /* Thin themed scrollbars */
   * {
-    scrollbar-width: none; /* Firefox */
-    -ms-overflow-style: none; /* IE and Edge */
+    scrollbar-width: thin;
+    scrollbar-color: hsl(var(--border)) transparent;
   }
   *::-webkit-scrollbar {
-    display: none; /* Chrome, Safari, Opera */
+    width: 6px;
+    height: 6px;
+  }
+  *::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  *::-webkit-scrollbar-thumb {
+    background: hsl(var(--border));
+    border-radius: 3px;
+  }
+  *::-webkit-scrollbar-thumb:hover {
+    background: hsl(var(--muted-foreground));
   }
 }
 

@@ -1,4 +1,13 @@
+import { usePlatform } from '@/platform/PlatformContext';
+
 export function TitleBarDragRegion() {
+  const platform = usePlatform();
+
+  // Only render the drag region on Tauri — on web it blocks TopNav clicks
+  if (!platform.metadata.isTauri) {
+    return null;
+  }
+
   return (
     <div
       data-tauri-drag-region
